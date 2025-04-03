@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Speaker Detector - Console</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <div class="header">
+      <h1>🗣️ Speaker Detector Console</h1>
+    </div>
+
+    <div class="layout">
+      <div class="main-column">
+        <h2>🎤 Mic Test</h2>
+        <button onclick="testMic()">Test Microphone</button>
+        <div id="mic-status"></div>
+        <canvas id="mic-visualizer" width="400" height="100"></canvas>
+
+        <h2>🧑‍💼 Enroll Speaker</h2>
+        <input type="text" id="speaker-id" placeholder="Enter speaker ID" />
+        <button onclick="recordAndEnroll()">🎙 Record & Enroll</button>
+        <audio id="enroll-playback" controls style="display: none"></audio>
+
+        <h2>🔍 Identify Speaker</h2>
+        <button onclick="recordAndIdentify()">🎧 Record & Identify</button>
+        <div id="identify-result"></div>
+        <audio id="identify-playback" controls style="display: none"></audio>
+
+        <h2>📋 Enrolled Speakers</h2>
+        <button onclick="fetchSpeakers()">🔄 Refresh</button>
+        <ul id="speaker-list"></ul>
+      </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+  </body>
+</html>

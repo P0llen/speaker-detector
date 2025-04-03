@@ -1,0 +1,29 @@
+body {
+  font-family: Arial, sans-serif;
+  padding: 20px;
+  background: #f7f7f7;
+}
+.header {
+  text-align: center;
+}
+.main-column {
+  max-width: 600px;
+  margin: auto;
+}
+h2 {
+  margin-top: 30px;
+}
+button {
+  padding: 10px 20px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+input[type="text"] {
+  padding: 8px;
+  width: 100%;
+  margin-bottom: 10px;
+}
+canvas {
+  border: 1px solid #ccc;
+  margin-top: 10px;
+}
