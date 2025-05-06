@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "speaker-detector"
+version = "0.1.3"
+description = "A CLI tool for speaker enrollment and identification using SpeechBrain."
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+authors = [
+  { name = "Lara Whybrow", email = "lara.whybrow@gmail.com" }
+]
+dependencies = [
+  "torch",
+  "torchaudio",
+  "speechbrain",
+  "onnx"
+]
+
+[project.scripts]
+speaker-detector = "speaker_detector.cli:main"
+
+[tool.setuptools]
+packages = ["speaker_detector"]

@@ -1,0 +1,41 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+venv/
+venv
+.env
+.env/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# PyInstaller
+*.spec
+
+# IDE/editor configs
+.vscode/
+.idea/
+
+# Logs and temp
+*.log
+*.tmp
+
+# Local data
+recordings/
+enrollments/
+model/
+storage/
+*.wav
+*.pt
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# PyPI config
+*.token

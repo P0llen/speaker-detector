@@ -1,0 +1,12 @@
+torch
+torchaudio
+speechbrain
+onnx
+
+# For building and publishing
+build
+twine
+
+# For editable installs (standard in editable mode)
+setuptools>=61.0
+

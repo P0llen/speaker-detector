@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>🧠 Speaker Training UI</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    #mic-visualizer {
+      margin: 1rem 0;
+      background: #111;
+      border-radius: 8px;
+    }
+    #mic-feedback {
+      font-size: 0.9rem;
+      margin-top: 0.5rem;
+    }
+    #mic-feedback[title] {
+      cursor: help;
+      text-decoration: underline dotted;
+    }
+    .glow {
+      filter: drop-shadow(0 0 6px lime);
+    }
+    .score-history {
+      font-family: monospace;
+      font-size: 0.9rem;
+      margin-top: 1rem;
+      border-top: 1px solid #333;
+      padding-top: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🧠 Speaker Training UI</h1>
+  </div>
+
+  <div class="layout">
+    <div class="main-column">
+
+      <!-- 🎤 Mic Test -->
+      <h2>🎤 Mic Test</h2>
+      <button onclick="testMic()">Test Microphone</button>
+      <div id="mic-status"></div>
+
+      <!-- 🎛️ Visualizer & Feedback -->
+      <canvas id="mic-visualizer" width="400" height="50"></canvas>
+      <div id="mic-timer">⏱️ 00:00</div>
+      <div id="mic-feedback" title="🟢 Good: ideal voice level\n🟡 Quiet: might work, but soft\n🔴 Too quiet: likely not usable">
+        🎙️ Waiting...
+      </div>
+      <button id="stop-btn" onclick="manualStop()" disabled>⏹️ Stop</button>
+
+      <!-- 🧑‍💼 Enroll Speaker -->
+      <h2>🧑‍💼 Enroll Speaker</h2>
+      <input type="text" id="speaker-id" placeholder="Enter speaker ID" />
+      <button onclick="recordAndEnroll()">🎙️ Enroll</button>
+
+      <!-- 🔍 Identify -->
+      <h2>🔍 Identify Speaker</h2>
+      <button onclick="recordAndIdentify()">🎧 Record & Identify</button>
+      <div id="identify-result"></div>
+      <div class="score-history" id="score-history"></div>
+
+      <!-- 📋 Recordings -->
+      <h2>📋 Enrolled Speakers</h2>
+      <button onclick="fetchRecordings()">🔄 Refresh</button>
+      <div id="recording-list"><p>Loading...</p></div>
+
+      <!-- Export -->
+      <div style="margin-top: 2rem;">
+        <button onclick="window.location.href='/api/export?type=pt'">💾 Export .pt</button>
+        <button onclick="window.location.href='/api/export?type=json'">📄 Export JSON</button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    let mediaRecorder, audioChunks = [];
+    let audioContext, analyser, micSource, animationId;
+    let recordingSeconds = 4;
+    let timerInterval;
+    let stopTimeout;
+    let activeStream = null;
+
+    const historyEl = document.getElementById("score-history");
+    const stopBtn = document.getElementById("stop-btn");
+
+    function startVisualizer(stream) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioContext.createAnalyser();
+      micSource = audioContext.createMediaStreamSource(stream);
+      micSource.connect(analyser);
+      analyser.fftSize = 64;
+
+      const canvas = document.getElementById("mic-visualizer");
+      const ctx = canvas.getContext("2d");
+
+      function draw() {
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(dataArray);
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const barWidth = canvas.width / dataArray.length;
+
+        let avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+
+        const feedback = document.getElementById("mic-feedback");
+        if (avg > 100) {
+          feedback.innerText = "🟢 Good voice level";
+          feedback.style.color = "lime";
+        } else if (avg > 50) {
+          feedback.innerText = "🟡 A bit quiet";
+          feedback.style.color = "orange";
+        } else {
+          feedback.innerText = "🔴 Too quiet / silent";
+          feedback.style.color = "red";
+        }
+
+        for (let i = 0; i < dataArray.length; i++) {
+          const barHeight = dataArray[i] / 1.5;
+          const x = i * barWidth;
+          ctx.fillStyle = "lime";
+          ctx.beginPath();
+          const radius = 6;
+          ctx.roundRect(x, canvas.height - barHeight, barWidth - 2, barHeight, radius);
+          ctx.fill();
+        }
+
+        animationId = requestAnimationFrame(draw);
+      }
+
+      draw();
+    }
+
+    CanvasRenderingContext2D.prototype.roundRect = function (x, y, width, height, radius) {
+      if (width < 2 * radius) radius = width / 2;
+      if (height < 2 * radius) radius = height / 2;
+      this.beginPath();
+      this.moveTo(x + radius, y);
+      this.arcTo(x + width, y, x + width, y + height, radius);
+      this.arcTo(x + width, y + height, x, y + height, radius);
+      this.arcTo(x, y + height, x, y, radius);
+      this.arcTo(x, y, x + width, y, radius);
+      this.closePath();
+    };
+
+    function stopVisualizer() {
+      cancelAnimationFrame(animationId);
+      if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+      }
+    }
+
+    function startTimer(seconds) {
+      const timer = document.getElementById("mic-timer");
+      let remaining = seconds;
+      timer.innerText = `⏱️ 00:${remaining < 10 ? "0" : ""}${remaining}`;
+      timer.style.color = "white";
+
+      timerInterval = setInterval(() => {
+        remaining--;
+        timer.innerText = `⏱️ 00:${remaining < 10 ? "0" : ""}${remaining}`;
+        if (remaining <= 1) timer.style.color = "red";
+        if (remaining <= 0) clearInterval(timerInterval);
+      }, 1000);
+    }
+
+    function resetTimer() {
+      clearInterval(timerInterval);
+      document.getElementById("mic-timer").innerText = "⏱️ 00:00";
+    }
+
+    function manualStop() {
+      if (mediaRecorder?.state === "recording") {
+        mediaRecorder.stop();
+        clearTimeout(stopTimeout);
+        stopBtn.disabled = true;
+      }
+    }
+
+    function addToHistory(entry) {
+      const now = new Date().toLocaleTimeString();
+      const line = `${entry} @ ${now}`;
+      const existing = Array.from(historyEl.children).map(e => e.innerText);
+      historyEl.innerHTML = "";
+      const all = [line, ...existing].slice(0, 5);
+      all.forEach(txt => {
+        const div = document.createElement("div");
+        div.innerText = txt;
+        historyEl.appendChild(div);
+      });
+    }
+
+    function recordAndSend(endpoint, callback) {
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        activeStream = stream;
+        startVisualizer(stream);
+        startTimer(recordingSeconds);
+        stopBtn.disabled = false;
+
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        mediaRecorder.onstop = () => {
+          stopVisualizer();
+          resetTimer();
+          stopBtn.disabled = true;
+          stream.getTracks().forEach(t => t.stop());
+
+          const blob = new Blob(audioChunks, { type: 'audio/wav' });
+          const formData = new FormData();
+          formData.append("file", blob, "sample.wav");
+
+          fetch(endpoint, {
+            method: "POST",
+            body: formData
+          })
+            .then(res => res.json())
+            .then(callback)
+            .catch(console.error);
+        };
+
+        mediaRecorder.start();
+        stopTimeout = setTimeout(() => {
+          if (mediaRecorder.state === "recording") {
+            mediaRecorder.stop();
+            stopBtn.disabled = true;
+          }
+        }, recordingSeconds * 1000);
+      });
+    }
+
+    function testMic() {
+      recordAndSend("/identify", () => {
+        document.getElementById("mic-status").innerText = "Mic works!";
+      });
+    }
+
+    function recordAndEnroll() {
+      const speakerId = document.getElementById("speaker-id").value.trim();
+      if (!speakerId) return alert("Enter speaker ID first");
+      recordAndSend(`/enroll/${speakerId}`, () => {
+        alert("✅ Enrolled " + speakerId);
+        fetchRecordings();
+      });
+    }
+
+    function recordAndIdentify() {
+      recordAndSend("/identify", data => {
+        const result = `✅ ${data.speaker} (score: ${data.score})`;
+        document.getElementById("identify-result").innerText = result;
+        addToHistory(`${data.speaker} – score: ${data.score}`);
+      });
+    }
+
+    function fetchRecordings() {
+      fetch("/recordings")
+        .then(res => res.json())
+        .then(data => {
+          const container = document.getElementById("recording-list");
+          container.innerHTML = "";
+
+          const speakerNames = Object.keys(data);
+          if (speakerNames.length === 0) {
+            container.innerHTML = "<p>No enrolled speakers.</p>";
+            return;
+          }
+
+          speakerNames.forEach(speaker => {
+            const section = document.createElement("div");
+            section.style.marginBottom = "1rem";
+            section.innerHTML = `<h3>🗣️ ${speaker}</h3>`;
+
+            data[speaker].forEach(file => {
+              const audio = document.createElement("audio");
+              audio.controls = true;
+              audio.src = `/storage/${speaker}/${file}`;
+
+              const label = document.createElement("span");
+              label.innerText = ` ${file}`;
+
+              const wrap = document.createElement("div");
+              wrap.style.display = "flex";
+              wrap.style.alignItems = "center";
+              wrap.style.gap = "0.5rem";
+              wrap.appendChild(audio);
+              wrap.appendChild(label);
+
+              section.appendChild(wrap);
+            });
+
+            container.appendChild(section);
+          });
+        })
+        .catch(err => {
+          console.error("❌ Failed to fetch recordings:", err);
+        });
+    }
+
+    // Load speakers on page load
+    fetchRecordings();
+  </script>
+</body>
+</html>
