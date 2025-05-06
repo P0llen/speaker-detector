@@ -41,3 +41,6 @@ speaker-detector list
 
 ~/.speaker-detector/enrollments/	    Saved .pt voice embeddings
 ~/.speaker-detector/recordings/	        CLI-recorded .wav audio files
+
+
+NB: When pushing to Github, do not include any .identifier files.
