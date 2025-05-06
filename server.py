@@ -1,214 +1,239 @@
 # server.py
-from http.server import BaseHTTPRequestHandler, HTTPServer
-import cgi, json, os, tempfile, mimetypes, shutil, subprocess, traceback
+
+import os
+import shutil
+import subprocess
+import traceback
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+
 from dotenv import load_dotenv
+from flask import (
+    Flask,
+    request,
+    jsonify,
+    render_template,
+    send_from_directory,
+    abort,
+)
 from openai import OpenAI
-from speaker_detector.core import enroll_speaker, identify_speaker, list_speakers, STORAGE_DIR
 
-# Load environment variables
+from speaker_detector.core import (
+    enroll_speaker,
+    identify_speaker,
+    list_speakers,
+    STORAGE_DIR,
+)
+
+# ─── Configuration ──────────────────────────────────────────────────────────────
+
 load_dotenv()
+PORT = int(os.getenv("PORT", 9000))
 
-# Configuration
-PORT = 8000
-MEETING_DIR = Path("storage/meetings")
-FAILED_DIR = Path("storage/failed_chunks")
-TEMPLATES_DIR = Path("templates")
+BASE_DIR = Path(__file__).parent.resolve()
+MEETING_DIR = BASE_DIR / "storage" / "meetings"
+FAILED_DIR = BASE_DIR / "storage" / "failed_chunks"
+STORAGE_BASE = BASE_DIR / "storage"
+TEMPLATES_DIR = BASE_DIR / "templates"
 
-# Ensure directories exist
-MEETING_DIR.mkdir(parents=True, exist_ok=True)
-FAILED_DIR.mkdir(parents=True, exist_ok=True)
+# Ensure storage dirs exist
+for d in (MEETING_DIR, FAILED_DIR, STORAGE_BASE):
+    d.mkdir(parents=True, exist_ok=True)
 
 # Initialize OpenAI client
 client = OpenAI()
 
+# ─── Helper ────────────────────────────────────────────────────────────────────
+
 def convert_to_wav(input_path: str, output_path: str, sample_rate: int = 16000):
-    """
-    Convert an input audio blob (e.g. WebM chunk) into a WAV file.
-    Returns (True, "") on success or (False, error_message) on failure.
-    """
+    """Convert any audio to mono-16 kHz WAV via ffmpeg."""
     cmd = [
         "ffmpeg", "-y",
-        "-i", input_path,        # auto-detect container
+        "-i", input_path,
         "-ar", str(sample_rate),
         "-ac", "1",
-        output_path
+        output_path,
     ]
     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if proc.returncode != 0:
-        err = proc.stderr.decode(errors="ignore")
-        print(f"[ffmpeg] ❌ Conversion error:\n{err}")
+    if proc.returncode != 0 or not os.path.exists(output_path):
+        err = proc.stderr.decode(errors="ignore") or f"Missing output: {output_path}"
         return False, err
-    if not os.path.exists(output_path):
-        err = f"Missing output file: {output_path}"
-        print(f"[ffmpeg] ❌ {err}")
-        return False, err
-    print(f"[ffmpeg] ✅ Converted → {output_path}")
     return True, ""
 
-class SpeakerHandler(BaseHTTPRequestHandler):
-    def _send_json(self, data, status: int = 200):
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.end_headers()
-        self.wfile.write(json.dumps(data).encode())
+# ─── App Setup ────────────────────────────────────────────────────────────────
 
-    def do_GET(self):
-        if self.path == "/":
-            try:
-                content = (TEMPLATES_DIR / "index.html").read_bytes()
-                self.send_response(200)
-                self.send_header("Content-Type", "text/html; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(content)
-            except Exception as e:
-                traceback.print_exc()
-                self.send_error(500, str(e))
-        elif self.path.startswith("/static/") or self.path.startswith("/storage/"):
-            fp = Path('.') / self.path.lstrip('/')
-            if fp.is_file():
-                self.send_response(200)
-                mime, _ = mimetypes.guess_type(str(fp))
-                self.send_header("Content-Type", mime or "application/octet-stream")
-                self.end_headers()
-                self.wfile.write(fp.read_bytes())
-            else:
-                self.send_error(404, "Not found")
-        elif self.path == "/speakers":
-            self._send_json(list_speakers())
-        elif self.path == "/meetings":
-            ids = [d.name for d in MEETING_DIR.iterdir() if d.is_dir()]
-            self._send_json(ids)
-        elif self.path == "/recordings":
-            rec = {}
-            if STORAGE_DIR.exists():
-                for spk in STORAGE_DIR.iterdir():
-                    if spk.is_dir():
-                        rec[spk.name] = sorted(f.name for f in spk.glob("*.wav"))
-            self._send_json(rec)
-        elif self.path.startswith("/generate-summary/"):
-            meeting_id = self.path.rsplit('/',1)[-1]
-            folder = MEETING_DIR / meeting_id
-            if not folder.exists():
-                return self._send_json({"error":"Meeting not found"},404)
-            try:
-                # 1) Concatenate WAV chunks
-                wavs = sorted(folder.glob("*.wav"))
-                if not wavs:
-                    raise RuntimeError("No audio chunks to summarize.")
-                listfile = folder / f"{meeting_id}_list.txt"
-                listfile.write_text("\n".join(f"file '{str(p.resolve())}'" for p in wavs))
-                merged = folder / f"{meeting_id}_merged.wav"
-                subprocess.run([
-                    "ffmpeg","-y","-f","concat","-safe","0",
-                    "-i", str(listfile), "-c","copy", str(merged)
-                ], check=True)
+app = Flask(
+    __name__,
+    static_folder=str(BASE_DIR / "static"),
+    template_folder=str(TEMPLATES_DIR),
+)
 
-                # 2) Whisper transcription
-                with open(merged, "rb") as mf:
-                    resp = client.audio.transcriptions.create(
-                        model="whisper-1", file=mf,
-                        response_format="verbose_json", temperature=0
-                    )
-                full_text = resp.text
+# ─── Routes ───────────────────────────────────────────────────────────────────
 
-                # 3) Label each segment
-                segments = []
-                for seg in resp.segments:
-                    start, end, text = seg.start, seg.end, seg.text
-                    tmpwav = NamedTemporaryFile(suffix=".wav", delete=False).name
-                    subprocess.run([
-                        "ffmpeg","-y","-i", str(merged),
-                        "-ss", str(start), "-to", str(end),
-                        "-ar","16000","-ac","1", tmpwav
-                    ], check=True)
-                    spk = identify_speaker(tmpwav)
-                    os.remove(tmpwav)
-                    segments.append({
-                        "start": round(start,2),
-                        "end": round(end,2),
-                        "speaker": spk.get("speaker","unknown"),
-                        "score": spk.get("score",0.0),
-                        "text": text.strip()
-                    })
+@app.route("/")
+def index():
+    return render_template("index.html")
 
-                # Cleanup
-                os.remove(merged)
-                os.remove(listfile)
-                return self._send_json({"transcript":full_text,"segments":segments})
-            except Exception as e:
-                traceback.print_exc()
-                return self._send_json({"error":str(e)},500)
-        else:
-            self.send_error(404)
+@app.route("/storage/<path:filename>")
+def serve_storage(filename):
+    return send_from_directory(str(STORAGE_BASE), filename)
 
-    def do_POST(self):
-        tmp_blob = None
-        try:
-            ctype, _ = cgi.parse_header(self.headers.get("Content-Type",""))
-            if ctype != "multipart/form-data":
-                return self._send_json({"error":"Bad content type"},400)
-            form = cgi.FieldStorage(fp=self.rfile, headers=self.headers,
-                                     environ={"REQUEST_METHOD":"POST"})
-            file_field = form["file"]
-            blob = file_field.file.read()
-            fd, tmp_blob = tempfile.mkstemp(suffix=".webm")
-            os.close(fd)
-            with open(tmp_blob, "wb") as f:
-                f.write(blob)
+# —— Speaker & Meeting Lists
 
-            # /save-chunk → convert and save WAV
-            if self.path == "/save-chunk":
-                meeting_id = form.getvalue("meeting_id")
-                fn = file_field.filename
-                out_dir = MEETING_DIR / meeting_id
-                out_dir.mkdir(parents=True, exist_ok=True)
-                wav_out = out_dir / f"{Path(fn).stem}.wav"
-                ok, err = convert_to_wav(tmp_blob, str(wav_out))
-                if not ok:
-                    raise RuntimeError(err)
-                print(f"✅ Saved chunk → {wav_out}")
-                return self._send_json({"status":"saved"})
+@app.route("/api/speakers", methods=["GET"])
+def api_speakers():
+    return jsonify(list_speakers())
 
-            # /identify → convert blob to WAV and identify
-            elif self.path == "/identify":
-                wav_tmp = tmp_blob + ".wav"
-                ok, err = convert_to_wav(tmp_blob, wav_tmp)
-                if not ok:
-                    raise RuntimeError(err)
-                res = identify_speaker(wav_tmp)
-                os.remove(wav_tmp)
-                return self._send_json(res)
+@app.route("/api/meetings", methods=["GET"])
+def api_meetings():
+    ids = [d.name for d in MEETING_DIR.iterdir() if d.is_dir()]
+    return jsonify(ids)
 
-            # /enroll → convert and enroll
-            elif self.path.startswith("/enroll/"):
-                sid = self.path.rsplit('/',1)[-1]
-                wav_tmp = tmp_blob + ".wav"
-                ok, err = convert_to_wav(tmp_blob, wav_tmp)
-                if not ok:
-                    raise RuntimeError(err)
-                enroll_speaker(wav_tmp, sid)
-                os.remove(wav_tmp)
-                return self._send_json({"status":"enrolled","speaker":sid})
+@app.route("/api/recordings", methods=["GET"])
+def api_recordings():
+    rec = {}
+    for spk in STORAGE_DIR.iterdir():
+        if spk.is_dir():
+            rec[spk.name] = sorted(f.name for f in spk.glob("*.wav"))
+    return jsonify(rec)
 
-            else:
-                return self._send_json({"error":"Route not found"},404)
-        except Exception as e:
-            traceback.print_exc()
-            return self._send_json({"error":str(e)},500)
-        finally:
-            if tmp_blob and os.path.exists(tmp_blob):
-                os.remove(tmp_blob)
+# —— Generate Summary
 
-    def do_DELETE(self):
-        if self.path.startswith("/delete-meeting/"):
-            mid = self.path.rsplit('/',1)[-1]
-            folder = MEETING_DIR / mid
-            if folder.exists(): shutil.rmtree(folder); return self._send_json({"deleted":True})
-            return self._send_json({"error":"Not found"},404)
-        self.send_error(404)
+@app.route("/api/generate-summary/<meeting_id>", methods=["GET"])
+def generate_summary(meeting_id):
+    folder = MEETING_DIR / meeting_id
+    if not folder.exists():
+        return jsonify(error="Meeting not found"), 404
+
+    try:
+        # 1) Merge chunks
+        wavs = sorted(folder.glob("*.wav"))
+        if not wavs:
+            raise RuntimeError("No audio chunks to summarize.")
+        listfile = folder / f"{meeting_id}_files.txt"
+        listfile.write_text("\n".join(f"file '{str(p)}'" for p in wavs))
+
+        merged = folder / f"{meeting_id}_merged.wav"
+        subprocess.run([
+            "ffmpeg", "-y", "-f", "concat", "-safe", "0",
+            "-i", str(listfile), "-c", "copy", str(merged)
+        ], check=True)
+
+        # 2) Whisper transcription
+        with open(merged, "rb") as mf:
+            resp = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=mf,
+                response_format="verbose_json",
+                temperature=0
+            )
+
+        # 3) Label segments
+        segments = []
+        for seg in resp.segments:
+            start, end, text = seg.start, seg.end, seg.text.strip()
+            tmp = NamedTemporaryFile(suffix=".wav", delete=False).name
+            subprocess.run([
+                "ffmpeg", "-y", "-i", str(merged),
+                "-ss", str(start), "-to", str(end),
+                "-ar", "16000", "-ac", "1", tmp
+            ], check=True)
+
+            spk = identify_speaker(tmp)
+            os.remove(tmp)
+
+            segments.append({
+                "start": round(start, 2),
+                "end":   round(end,   2),
+                "speaker": spk.get("speaker", "unknown"),
+                "score":   spk.get("score",   0.0),
+                "text":    text,
+            })
+
+        # Cleanup
+        merged.unlink()
+        listfile.unlink()
+
+        return jsonify(transcript=resp.text, segments=segments)
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify(error=str(e)), 500
+
+# —— Chunk saving, identify & enroll
+
+@app.route("/api/save-chunk", methods=["POST"])
+def save_chunk():
+    file = request.files.get("file")
+    meeting_id = request.form.get("meeting_id")
+    if not file or not meeting_id:
+        return jsonify(error="Missing file or meeting_id"), 400
+
+    # write blob to temp .webm
+    tmp_webm = NamedTemporaryFile(suffix=".webm", delete=False).name
+    file.save(tmp_webm)
+
+    out_dir = MEETING_DIR / meeting_id
+    out_dir.mkdir(parents=True, exist_ok=True)
+    wav_out = out_dir / f"{Path(file.filename).stem}.wav"
+
+    ok, err = convert_to_wav(tmp_webm, str(wav_out))
+    os.remove(tmp_webm)
+    if not ok:
+        return jsonify(error=err), 500
+
+    return jsonify(status="saved")
+
+@app.route("/api/identify", methods=["POST"])
+def api_identify():
+    file = request.files.get("file")
+    if not file:
+        return jsonify(error="Missing file"), 400
+
+    tmp_webm = NamedTemporaryFile(suffix=".webm", delete=False).name
+    file.save(tmp_webm)
+    tmp_wav = tmp_webm + ".wav"
+
+    ok, err = convert_to_wav(tmp_webm, tmp_wav)
+    os.remove(tmp_webm)
+    if not ok:
+        return jsonify(error=err), 500
+
+    res = identify_speaker(tmp_wav)
+    os.remove(tmp_wav)
+    return jsonify(res)
+
+@app.route("/api/enroll/<speaker_id>", methods=["POST"])
+def api_enroll(speaker_id):
+    file = request.files.get("file")
+    if not file:
+        return jsonify(error="Missing file"), 400
+
+    tmp_webm = NamedTemporaryFile(suffix=".webm", delete=False).name
+    file.save(tmp_webm)
+    tmp_wav = tmp_webm + ".wav"
+
+    ok, err = convert_to_wav(tmp_webm, tmp_wav)
+    os.remove(tmp_webm)
+    if not ok:
+        return jsonify(error=err), 500
+
+    enroll_speaker(tmp_wav, speaker_id)
+    os.remove(tmp_wav)
+    return jsonify(status="enrolled", speaker=speaker_id)
+
+# —— Delete meeting
+
+@app.route("/api/delete-meeting/<meeting_id>", methods=["DELETE"])
+def delete_meeting(meeting_id):
+    folder = MEETING_DIR / meeting_id
+    if folder.exists():
+        shutil.rmtree(folder)
+        return jsonify(deleted=True)
+    return jsonify(error="Not found"), 404
+
+# ─── Launch ────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    print(f"🎙 API running at http://0.0.0.0:{PORT}")
-    HTTPServer(("0.0.0.0", PORT), SpeakerHandler).serve_forever()
+    print(f"🎙 Server listening on http://0.0.0.0:{PORT}")
+    app.run(host="0.0.0.0", port=PORT)
