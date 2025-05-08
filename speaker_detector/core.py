@@ -3,9 +3,14 @@ from pathlib import Path
 import torchaudio
 import torch
 
-# Store files in ./storage (project-relative)
-STORAGE_DIR = Path(__file__).resolve().parent.parent / "storage"
-STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+# Storage directories
+BASE_DIR = Path(__file__).resolve().parent.parent / "storage"
+SPEAKER_AUDIO_DIR = BASE_DIR / "speakers"
+EMBEDDINGS_DIR = BASE_DIR / "embeddings"
+
+# Ensure they exist
+SPEAKER_AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+EMBEDDINGS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Load model once
 MODEL = SpeakerRecognition.from_hparams(
@@ -22,9 +27,10 @@ def get_embedding(audio_path):
         raise RuntimeError(f"Failed to embed {audio_path}: {e}")
 
 def enroll_speaker(audio_path, speaker_id):
-    speaker_dir = STORAGE_DIR / speaker_id
+    speaker_dir = SPEAKER_AUDIO_DIR / speaker_id
     speaker_dir.mkdir(parents=True, exist_ok=True)
 
+    # Save audio sample
     existing = list(speaker_dir.glob("*.wav"))
     new_index = len(existing) + 1
     dest_path = speaker_dir / f"{new_index}.wav"
@@ -36,6 +42,12 @@ def enroll_speaker(audio_path, speaker_id):
     torchaudio.save(str(dest_path), waveform, sample_rate)
     print(f"🎙 Saved {speaker_id}'s recording #{new_index} → {dest_path}")
 
+    # Save embedding
+    emb = get_embedding(audio_path)
+    emb_path = EMBEDDINGS_DIR / f"{speaker_id}.pt"
+    torch.save(emb, emb_path)
+    print(f"🧠 Saved embedding for {speaker_id} → {emb_path}")
+
 def identify_speaker(audio_path):
     try:
         test_emb = get_embedding(audio_path)
@@ -43,25 +55,15 @@ def identify_speaker(audio_path):
         return {"speaker": "error", "score": 0, "error": str(e)}
 
     scores = {}
-    for speaker_dir in STORAGE_DIR.iterdir():
-        if not speaker_dir.is_dir():
+    for emb_path in EMBEDDINGS_DIR.glob("*.pt"):
+        speaker_name = emb_path.stem
+        try:
+            enrolled_emb = torch.load(emb_path)
+            score = torch.nn.functional.cosine_similarity(enrolled_emb, test_emb, dim=0).item()
+            scores[speaker_name] = score
+        except Exception as e:
+            print(f"⚠️ Skipped {speaker_name}: {e}")
             continue
-
-        emb_list = []
-        for wav_file in speaker_dir.glob("*.wav"):
-            try:
-                emb = get_embedding(wav_file)
-                emb_list.append(emb)
-            except Exception as e:
-                print(f"⚠️ Skipped bad file {wav_file.name}: {e}")
-                continue
-
-        if not emb_list:
-            continue
-
-        avg_emb = torch.stack(emb_list).mean(dim=0)
-        score = torch.nn.functional.cosine_similarity(avg_emb, test_emb, dim=0).item()
-        scores[speaker_dir.name] = score
 
     print("🔍 Similarity Scores:")
     for name, score in scores.items():
@@ -75,7 +77,7 @@ def identify_speaker(audio_path):
 
 def list_speakers():
     speakers = []
-    for dir in STORAGE_DIR.iterdir():
+    for dir in SPEAKER_AUDIO_DIR.iterdir():
         if dir.is_dir():
             count = len(list(dir.glob("*.wav")))
             speakers.append(f"{dir.name} ({count} recording{'s' if count != 1 else ''})")

@@ -22,7 +22,8 @@ from speaker_detector.core import (
     enroll_speaker,
     identify_speaker,
     list_speakers,
-    STORAGE_DIR,
+    
+    
 )
 
 # ─── Configuration ──────────────────────────────────────────────────────────────
@@ -34,10 +35,13 @@ BASE_DIR = Path(__file__).parent.resolve()
 MEETING_DIR = BASE_DIR / "storage" / "meetings"
 FAILED_DIR = BASE_DIR / "storage" / "failed_chunks"
 STORAGE_BASE = BASE_DIR / "storage"
+SPEAKER_AUDIO_DIR = STORAGE_BASE / "speakers"
+EMBEDDINGS_DIR = STORAGE_BASE / "embeddings"
 TEMPLATES_DIR = BASE_DIR / "templates"
 
+
 # Ensure storage dirs exist
-for d in (MEETING_DIR, FAILED_DIR, STORAGE_BASE):
+for d in (MEETING_DIR, FAILED_DIR, STORAGE_BASE, SPEAKER_AUDIO_DIR, EMBEDDINGS_DIR):
     d.mkdir(parents=True, exist_ok=True)
 
 # Initialize OpenAI client
@@ -92,7 +96,7 @@ def api_meetings():
 @app.route("/api/recordings", methods=["GET"])
 def api_recordings():
     rec = {}
-    for spk in STORAGE_DIR.iterdir():
+    for spk in SPEAKER_AUDIO_DIR.iterdir():
         if spk.is_dir():
             rec[spk.name] = sorted(f.name for f in spk.glob("*.wav"))
     return jsonify(rec)

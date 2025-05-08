@@ -1,19 +1,76 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>🧠 Speaker Training UI</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <title>Unified Mic Controls</title>
+  <link rel="stylesheet" href="static/style.css">
 </head>
 <body>
-  <div class="header">
-    <h1>🧠 Speaker Training UI</h1>
-  </div>
-  <h2>🔍 Identify Speaker</h2>
-  <button onclick="recordAndIdentify()">🎧 Record & Identify</button>
-  <div id="identify-result">Status: Idle</div>
-  <canvas … id="identify-visualizer" style="display:none;"></canvas>
-  
 
-  <script src="/static/script.js"></script>
+  <div class="header">
+    <h1>🎤 Unified Mic Controls</h1>
+  </div>
+
+  <div class="layout">
+    <div class="main-column">
+      <h2>🎛️ Select Operation</h2>
+
+      <div class="toggle-container">
+        <div class="toggle-option active" data-mode="1">Mic Test</div>
+        <div class="toggle-option" data-mode="2">Enroll Speaker</div>
+        <div class="toggle-option" data-mode="3">Identify Speaker</div>
+      </div>
+
+      <div id="mic-control-area">
+        <canvas id="identify-visualizer"></canvas>
+        <div id="identify-result">Awaiting action...</div>
+
+        <div id="enroll-area" style="display:none;">
+          <input type="text" id="speaker-id" placeholder="Enter speaker ID">
+        </div>
+
+        <button id="action-btn">▶️ Start Mic Test</button>
+      </div>
+
+      <div class="tabs">
+        <div class="tab-button active" data-tab="speakers-tab">Speakers</div>
+        <div class="tab-button" data-tab="meetings-tab">Meetings</div>
+        <div class="tab-button" data-tab="recordings-tab">Recordings</div>
+      </div>
+
+      <div id="speakers-tab" class="tab-content active">
+        <h3>Enrolled Speakers <button id="refresh-speakers-btn">🔄 Refresh</button></h3>
+        <ul id="speakers-list">
+          <li><em>Loading...</em></li>
+        </ul>        
+      </div>
+
+      <div id="meetings-tab" class="tab-content">
+        <h3>Meetings</h3>
+        <div id="meeting-list">
+          <em>No meetings saved yet.</em>
+        </div>
+
+        <button id="start-meeting">🎙️ Start Meeting</button>
+        <button id="stop-meeting" disabled>⏹️ Stop Meeting</button>
+
+        <div id="meeting-status">Status: idle</div>
+        <div id="speaker-label">Current speaker: —</div>
+
+        <div id="timeline"></div>
+      </div>
+
+      <div id="recordings-tab" class="tab-content">
+        <h3>Recordings <button id="list-recordings-btn">🔄 Refresh</button></h3>
+        <ul id="recordings-list">
+          <li><em>Loading...</em></li>
+        </ul>
+      </div>
+      
+
+    </div>
+  </div>
+
+  <script src="static/script.js"></script>
+
 </body>
 </html>

@@ -30,11 +30,13 @@
       <h2>🔍 Identify Speaker</h2>
       <button onclick="recordAndIdentify()">🎧 Record & Identify</button>
       <div id="identify-result">Status: Idle</div>
-      <canvas id="identify-visualizer" width="400" height="80" style="display:none;"></canvas>
+      <canvas id="identify-visualizer" width="400" height="80" ></canvas>
 
       <h2>📋 Enrolled Speakers</h2>
-      <button onclick="fetchRecordings()">🔄 Refresh</button>
-      <div id="recording-list"><p>Loading...</p></div>
+        <button id="refresh-speakers-btn">🔄 Refresh Speakers</button>
+        <ul id="speakers-list">
+        <li><em>Loading…</em></li>
+        </ul>
 
       <div style="margin-top: 2rem;">
         <button onclick="window.location.href='/api/export?type=pt'">💾 Export .pt</button>
