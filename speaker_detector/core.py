@@ -48,7 +48,7 @@ def enroll_speaker(audio_path, speaker_id):
     torch.save(emb, emb_path)
     print(f"🧠 Saved embedding for {speaker_id} → {emb_path}")
 
-def identify_speaker(audio_path):
+def identify_speaker(audio_path, threshold=0.25):
     try:
         test_emb = get_embedding(audio_path)
     except Exception as e:
@@ -62,18 +62,22 @@ def identify_speaker(audio_path):
             score = torch.nn.functional.cosine_similarity(enrolled_emb, test_emb, dim=0).item()
             scores[speaker_name] = score
         except Exception as e:
-            print(f"⚠️ Skipped {speaker_name}: {e}")
             continue
-
-    print("🔍 Similarity Scores:")
-    for name, score in scores.items():
-        print(f"  {name}: {score:.3f}")
 
     if not scores:
         return {"speaker": "unknown", "score": 0}
 
-    best = max(scores.items(), key=lambda kv: kv[1])
-    return {"speaker": best[0], "score": round(best[1], 3)}
+    sorted_scores = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
+    best, second = sorted_scores[0], sorted_scores[1] if len(sorted_scores) > 1 else (None, None)
+    auto_thresh = best[1] - (second[1] if second else 0) > 0.1
+    is_match = auto_thresh or best[1] >= threshold
+
+    result = {
+        "speaker": best[0] if is_match else "unknown",
+        "score": round(best[1], 3),
+        "all_scores": {k: round(v, 3) for k, v in sorted_scores}
+    }
+    return result
 
 def list_speakers():
     speakers = []
@@ -83,3 +87,17 @@ def list_speakers():
             speakers.append(f"{dir.name} ({count} recording{'s' if count != 1 else ''})")
     print(f"📋 Found {len(speakers)} enrolled speaker(s): {speakers}")
     return [s.split()[0] for s in speakers]
+
+def rebuild_embedding(speaker_id):
+    speaker_dir = SPEAKER_AUDIO_DIR / speaker_id
+    wavs = list(speaker_dir.glob("*.wav"))
+
+    if not wavs:
+        raise RuntimeError(f"No recordings found for {speaker_id}.")
+
+    embeddings = [get_embedding(w) for w in wavs]
+    avg_emb = torch.stack(embeddings).mean(dim=0)
+
+    emb_path = EMBEDDINGS_DIR / f"{speaker_id}.pt"
+    torch.save(avg_emb, emb_path)
+    print(f"🔁 Rebuilt embedding for {speaker_id}")
