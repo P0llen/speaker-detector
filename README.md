@@ -1,3 +1,5 @@
+Note: Still in development, as I am configuring the system for the most performant approach. Feel free to jump on the project with me. 
+
 # speaker-detector 🎙️
 
 A lightweight CLI tool for speaker enrollment and voice identification, powered by [SpeechBrain](https://speechbrain.readthedocs.io/).
