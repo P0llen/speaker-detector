@@ -1,0 +1,44 @@
+/* /static/components/accordion-nav/accordion-nav.css */
+
+.workflow-accordion {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 1rem;
+  background: white;
+  border-bottom: 1px solid #ddd;
+  justify-content: center;
+}
+
+.accordion-step {
+  background: #e0e0e0;
+  padding: 10px 16px;
+  border-radius: 8px;
+  text-align: center;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.2s ease, color 0.2s ease;
+  border: none;
+}
+
+.accordion-step:hover {
+  background: #d0eaff;
+}
+
+.accordion-step.active {
+  background: #007acc;
+  color: white;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .workflow-accordion {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .accordion-step {
+    width: 100%;
+  }
+}
+

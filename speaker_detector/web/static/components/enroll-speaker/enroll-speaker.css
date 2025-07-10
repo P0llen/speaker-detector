@@ -1,0 +1,26 @@
+#step-2.accordion-content {
+  padding: 1em;
+}
+
+#speaker-id {
+  padding: 0.5em;
+  width: 60%;
+  margin-right: 10px;
+}
+
+#enroll-speaker-btn {
+  padding: 0.5em 1em;
+  font-size: 1em;
+  cursor: pointer;
+}
+
+#enroll-speaker-status {
+  margin-top: 0.5em;
+  color: #444;
+}
+
+#speakers-list {
+  margin-top: 1em;
+  list-style-type: none;
+  padding-left: 0;
+}

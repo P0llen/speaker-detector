@@ -1,0 +1,21 @@
+<!-- /static/components/recordings-tab/recordings-tab.html -->
+
+<link rel="stylesheet" href="/static/components/recordings-tab/recordings-tab.css" />
+<!-- <script type="module" src="/static/components/recordings-tab/recordings-tab.js"></script> -->
+
+<template id="recordings-tab-template"> 
+    <h3>Recordings</h3>
+    <ul id="recordings-list">
+      <li><em>Loading...</em></li>
+    </ul>
+
+    <hr />
+    <h4>🎧 Save Background Noise Sample</h4>
+    <p>Record a few seconds of ambient background noise (no talking) to help improve accuracy.</p>
+    <button id="record-bg-btn">📢 Record Background Noise</button>
+    <p class="status" id="record-bg-status">Pending</p>
+
+</template>
+
+
+<div id="recordings-tab-root"></div>

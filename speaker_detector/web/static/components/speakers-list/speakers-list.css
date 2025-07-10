@@ -1,0 +1,31 @@
+.speakers-list-section {
+  padding: 1rem;
+  border-top: 1px solid #333;
+  background: #1a1a1a;
+  color: #fff;
+}
+
+.speakers-list-container {
+  list-style: none;
+  padding: 0;
+  margin-top: 1rem;
+}
+
+.speakers-list-container li {
+  background: #292929;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.speakers-list-container button {
+  background: #ff5c5c;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}

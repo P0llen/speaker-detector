@@ -21,6 +21,12 @@ Install from [TestPyPI](https://test.pypi.org/):
 
 ```bash
 pip install --index-url https://test.pypi.org/simple/ speaker-detector
+
+When installing packages with a stale requirement file you might need to use:  pip install --break-system-packages soundfile to install on WSL Ubuntu
+
+Run this version with -m module flag if you are contributing and want to run server.py:
+python3 -m speaker_detector.server
+
 ```
 
 ## 🚀 Usage
@@ -75,3 +81,15 @@ onnxruntime
 
 
 NB: When pushing to Github, do not include any .identifier files.
+
+You can manually clean up stale embeddings that don’t match any existing speaker folder with a quick script:
+
+# Run inside your project root
+cd storage/embeddings
+for f in *.pt; do
+  speaker="${f%.pt}"
+  if [ ! -d "../speakers/$speaker" ]; then
+    echo "Deleting stale embedding: $f"
+    rm "$f"
+  fi
+done

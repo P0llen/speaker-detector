@@ -1,0 +1,22 @@
+<!-- /static/components/mic-popup/mic-popup.html -->
+
+<link rel="stylesheet" href="/static/components/mic-popup/mic-popup.css" />
+<!-- <script type="module" src="/static/components/mic-popup/mic-popup.js"></script> -->
+
+<template id="mic-popup-template">
+  <div class="mic-popup" >
+    <div class="mic-popup-content">
+      <h2>🎤 Microphone Setup</h2>
+      <p class="mic-instruction" id="mic-prompt">Follow the prompt and speak clearly.</p>
+      <canvas id="mic-visualizer" ></canvas>
+      <p id="mic-status" class="status">Idle</p>
+      <div class="mic-popup-buttons">
+        <button id="mic-start-btn">▶️ Start</button>
+        <button id="mic-cancel-btn">❌ Cancel</button>
+      </div>
+    </div>
+  </div>
+</template>
+
+
+<div id="mic-popup-root"></div>

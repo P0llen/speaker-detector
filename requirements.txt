@@ -1,12 +1,20 @@
+# Core ML and Audio
 torch
 torchaudio
 speechbrain
-onnx
 
-# For building and publishing
+# Audio handling
+pydub
+sounddevice
+soundfile
+
+# Web backend
+flask
+flask-cors
+
+# Utilities
+numpy
+
+# Optional for packaging and publishing (skip if not building package)
 build
 twine
-
-# For editable installs (standard in editable mode)
-setuptools>=61.0
-

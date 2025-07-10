@@ -1,0 +1,21 @@
+<!-- /static/components/enroll-speaker/enroll-speaker.html -->
+
+<link rel="stylesheet" href="/static/components/enroll-speaker/enroll-speaker.css" />
+<!-- <script type="module" src="/static/components/enroll-speaker/enroll-speaker.js"></script> -->
+
+<template id="enroll-speaker-template">
+  <!-- <div id="enroll-speaker" class="accordion-content"> -->
+    <h3>Enroll Speaker</h3>
+
+    <input type="text" id="speaker-id" placeholder="Enter speaker ID" />
+    <button id="enroll-speaker-btn">➕ Enroll Speaker</button>
+    <p class="status" id="enroll-speaker-status">Pending</p>
+
+    <!-- 🔁 Speakers list will be injected here -->
+    <div id="speakers-list-root">
+      <p id="speakers-loading-msg">👤 Loading speakers list...</p>
+    </div>
+  </div>
+</template>
+
+<div id="enroll-speaker-root"></div>

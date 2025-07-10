@@ -1,0 +1,43 @@
+.correction-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  display: none;
+  justify-content: center;
+  align-items: center;
+}
+
+.correction-box {
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: 10px;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+  text-align: center;
+}
+
+.correction-box h3 {
+  margin-top: 0;
+  color: #007acc;
+}
+
+.correction-box label {
+  display: block;
+  margin: 1rem 0 0.5rem;
+  font-weight: bold;
+}
+
+.correction-box select,
+.correction-box input[type="text"] {
+  width: 100%;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+}
+
+.correction-box button {
+  margin: 0.3rem;
+}

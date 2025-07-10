@@ -1,0 +1,48 @@
+.mic-popup {
+  position: fixed;
+  z-index: 1000;
+  top: 0;
+  left: 0;
+  background: rgba(0, 0, 0, 0.7);
+  width: 100vw;
+  height: 100vh;
+  display: none;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 10vh;
+}
+
+.mic-popup.active {
+  display: flex;
+}
+
+.mic-popup-content {
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.mic-instruction {
+  font-style: italic;
+  color: #444;
+  margin-bottom: 10px;
+}
+
+#mic-visualizer {
+  width: 100%;
+  height: 100px;
+  background: #f0f0f0;
+  border: 1px solid #ccc;
+  margin: 10px 0;
+}
+
+.mic-popup-buttons {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 10px;
+}
+

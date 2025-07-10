@@ -1,0 +1,27 @@
+<!-- /static/components/correction/correction.html -->
+
+<link rel="stylesheet" href="/static/components/correction/correction.css" />
+<!-- <script type="module" src="/static/components/correction/correction.js"></script> -->
+
+<template id="correction-template">
+  <div class="correction-overlay">
+    <div class="correction-box">
+      <h3>🛠️ Correct Misclassified Speaker</h3>
+
+      <audio controls class="correction-audio"></audio>
+
+      <label>Reassign to:</label>
+      <select class="correction-dropdown"></select>
+
+      <input type="text" placeholder="Or add new speaker..." class="new-speaker-input" />
+
+      <div class="correction-buttons">
+        <button class="mark-background">Mark as Background Noise</button>
+        <button class="submit-correction">✅ Submit</button>
+        <button class="cancel-correction">Cancel</button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<div id="correction-root"></div>

@@ -1,0 +1,28 @@
+<!-- /static/components/meeting-mode/meeting-mode.html -->
+
+<link rel="stylesheet" href="/static/components/meeting-mode/meeting-mode.css" />
+<!-- <script type="module" src="/static/components/meeting-mode/meeting-mode.js"></script> -->
+
+<template id="meeting-mode-template">
+
+    <h3>🎙️ Meeting Mode</h3>
+    <p>Record meetings or conversations. Automatically saves chunks and allows transcription and speaker labeling.</p>
+
+    <div class="workflow-step">
+      <button id="start-meeting">▶️ Start Meeting</button>
+      <button id="stop-meeting" disabled>⏹️ Stop Meeting</button>
+      <p id="meeting-status">Status: idle</p>
+      <p id="speaker-label">Current speaker: —</p>
+    </div>
+
+    <div id="timeline"><em>Meeting timeline and summaries will appear here.</em></div>
+
+    <h4>📋 Saved Meetings</h4>
+    <div id="meeting-list">
+      <em>No meetings saved yet.</em>
+    </div>
+  
+</template>
+
+
+<div id="meeting-mode-root"></div>

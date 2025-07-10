@@ -1,0 +1,133 @@
+body {
+  font-family: sans-serif;
+  margin: 0;
+  padding: 0;
+  background: #f5f5f5;
+}
+
+.header {
+  background: #007acc;
+  color: white;
+  padding: 1rem;
+  text-align: center;
+}
+
+.workflow-accordion {
+  display: flex;
+  gap: 10px;
+  padding: 1rem;
+  background: white;
+  border-bottom: 1px solid #ddd;
+  flex-wrap: wrap;
+}
+
+.accordion-step {
+  flex: 1;
+  background: #e0e0e0;
+  padding: 10px;
+  border-radius: 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.accordion-step.active {
+  background: #007acc;
+  color: white;
+}
+
+.accordion-content {
+  display: none;
+  padding: 1rem;
+  background: white;
+  border-bottom: 1px solid #ddd;
+}
+
+.accordion-content.active {
+  display: block;
+}
+
+button {
+  padding: 0.5rem 1rem;
+  margin-top: 0.5rem;
+  background: #007acc;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+button:hover {
+  background: #005fa3;
+}
+
+.status {
+  margin-top: 0.5rem;
+  font-weight: bold;
+  color: #555;
+}
+
+canvas {
+  width: 100%;
+  height: 100px;
+  background: #111;
+  margin: 0.5rem 0;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+ul li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #eee;
+}
+
+input[type="text"] {
+  padding: 0.5rem;
+  width: 60%;
+  margin-right: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+#timeline {
+  margin-top: 1rem;
+}
+
+#identify-result {
+  margin: 0.5rem 0;
+}
+
+@media (max-width: 768px) {
+  .workflow-accordion {
+    flex-direction: column;
+  }
+
+  .accordion-step {
+    flex: unset;
+  }
+}
+
+#loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: #111;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  z-index: 9999;
+}
+
+.loader {
+  animation: pulse 1.2s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}

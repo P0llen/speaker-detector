@@ -1,0 +1,16 @@
+<!-- /static/components/mic-test/mic-test.html -->
+<link rel="stylesheet" href="/static/components/mic-test/mic-test.css" />
+
+<template id="mic-test-template">
+  <!-- <div class="accordion-content"> -->
+      <h3>Mic Test</h3>
+      <select id="mic-selector"></select>
+      <canvas class="visualizer" id="visualizer-mic-test" width="300" height="60"></canvas>
+      <div id="identify-result">Awaiting action...</div>
+      <p id="mic-test-status">Pending</p>
+      <button id="action-btn">▶️ Start Mic Test</button>
+  <!-- </div> -->
+</template>
+
+<!-- ✅ This is where the template gets mounted -->
+<div id="mic-test-root"></div>
