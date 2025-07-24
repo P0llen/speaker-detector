@@ -128,6 +128,21 @@ def needs_rebuild():
         return jsonify({"toRebuild": to_rebuild})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+@speakers_bp.route("/api/active-speaker")
+def active_speaker():
+    from speaker_detector.speaker_state import get_active_speaker
+    try:
+        result = get_active_speaker()
+        if result.get("confidence") is None:
+            result["confidence"] = 0.0
+        if result.get("speaker") is None:
+            result["speaker"] = "unknown"
+        return jsonify(result)
+    except Exception as e:
+        print(f"🔥 /api/active-speaker crash: {e}")
+        return jsonify({"error": "Failed to fetch active speaker"}), 500
+
 
 
 @speakers_bp.route("/api/speakers/list-names")

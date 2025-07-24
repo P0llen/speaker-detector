@@ -1,4 +1,35 @@
-23/07/2025 - Lara Whybrow, Creator - Works as far as I can see, but now we have a robust set of tools for training and managing the data and can focus now on refinement and bug fixing. 
+Metadata-Version: 2.4
+Name: speaker-detector
+Version: 0.1.6
+Summary: A CLI + Web tool for speaker enrollment and identification using SpeechBrain.
+Author-email: Lara Whybrow <lara.whybrow@gmail.com>
+License: MIT
+Project-URL: Homepage, https://github.com/P0llen/speaker-detector
+Project-URL: Repository, https://github.com/P0llen/speaker-detector
+Project-URL: Issues, https://github.com/P0llen/speaker-detector/issues
+Project-URL: Documentation, https://github.com/P0llen/speaker-detector#readme
+Keywords: speaker-recognition,speechbrain,voice,cli,ai
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Multimedia :: Sound/Audio :: Speech
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: torch
+Requires-Dist: torchaudio
+Requires-Dist: speechbrain
+Requires-Dist: flask
+Requires-Dist: flask-cors
+Requires-Dist: numpy
+Requires-Dist: sounddevice
+Requires-Dist: soundfile
+Requires-Dist: pydub
+
+Note: Still in development, as I am configuring the system for the most performant approach. Feel free to jump on the project with me. 
 
 # speaker-detector 🎙️
 

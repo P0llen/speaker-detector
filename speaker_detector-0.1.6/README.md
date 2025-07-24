@@ -1,4 +1,4 @@
-23/07/2025 - Lara Whybrow, Creator - Works as far as I can see, but now we have a robust set of tools for training and managing the data and can focus now on refinement and bug fixing. 
+Note: Still in development, as I am configuring the system for the most performant approach. Feel free to jump on the project with me. 
 
 # speaker-detector 🎙️
 

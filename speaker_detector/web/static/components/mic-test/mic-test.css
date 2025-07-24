@@ -4,7 +4,11 @@
   margin-bottom: 1em;
   padding: 0.5em;
   font-size: 1em;
+  min-width: 250px;
+  padding: 4px;
 }
+
+
 
 .visualizer {
   width: 100%;

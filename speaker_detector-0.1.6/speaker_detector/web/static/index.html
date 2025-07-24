@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Speaker Detector</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div id="loading-overlay">
+  <div class="loader">🔄 Loading Speaker Detector...</div>
+</div>
+
+  <h1>🎡️ Speaker Detector</h1>
+
+  <!-- Include all component templates -->
+  <div include-html="/static/components/accordion-nav/accordion-nav.html"></div>
+  <div include-html="/static/components/mic-test/mic-test.html"></div>
+  <div include-html="/static/components/enroll-speaker/enroll-speaker.html"></div>
+  <div include-html="/static/components/identify-speaker/identify-speaker.html"></div>
+  <div include-html="/static/components/meeting-mode/meeting-mode.html"></div>
+  <div include-html="/static/components/recordings-tab/recordings-tab.html"></div>
+  <div include-html="/static/components/mic-popup/mic-popup.html"></div>
+  <div include-html="/static/components/correction/correction.html"></div>
+
+  <!-- ✅ External module to handle includes + script setup -->
+  <script type="module" src="/static/scripts/loader.js"></script>
+</body>
+</html>

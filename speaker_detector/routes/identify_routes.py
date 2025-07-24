@@ -7,7 +7,7 @@ from flask import Blueprint, request, jsonify
 from pydub import AudioSegment
 
 from speaker_detector.core import identify_speaker
-from speaker_detector.state import DETECTION_THRESHOLD
+from speaker_detector.speaker_state import DETECTION_THRESHOLD
 
 
 identify_bp = Blueprint("identify_routes", __name__)

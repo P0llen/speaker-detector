@@ -5,8 +5,9 @@ let animationId;
 let selectedDeviceId = null;
 let fallbackDevices = [];
 let isRunning = false;
+let lastMicIds = [];
 
-export function setupMicTest() {
+export async function setupMicTest() {
   const template = document.getElementById("mic-test-template");
   const root = document.getElementById("mic-test-root");
 
@@ -16,27 +17,33 @@ export function setupMicTest() {
   }
 
   const clone = template.content.cloneNode(true);
-  root.appendChild(clone);
-
+  root.replaceWith(clone);
 
   const canvas = document.getElementById("visualizer-mic-test");
   const micStatus = document.getElementById("mic-test-status");
   const micSelector = document.getElementById("mic-selector");
+  const refreshBtn = document.getElementById("refresh-mics");
   const button = document.getElementById("action-btn");
 
   const savedDeviceId = localStorage.getItem("mic-test-device-id");
 
-  // 🔄 Populate mic dropdown
-  navigator.mediaDevices.enumerateDevices().then(devices => {
+  // 🔄 Refresh and populate mic list
+  async function refreshMicList(forceUpdate = false) {
+    const devices = await navigator.mediaDevices.enumerateDevices();
     const audioInputs = devices.filter(d => d.kind === "audioinput");
-    fallbackDevices = audioInputs.map(d => d.deviceId);
+    const currentMicIds = audioInputs.map(d => d.deviceId);
+
+    if (!forceUpdate && JSON.stringify(currentMicIds) === JSON.stringify(lastMicIds)) return;
+
+    lastMicIds = currentMicIds;
+    fallbackDevices = currentMicIds;
+    micSelector.innerHTML = "";
 
     if (audioInputs.length === 0) {
       micStatus.textContent = "❌ No microphones found.";
       return;
     }
 
-    micSelector.innerHTML = "";
     audioInputs.forEach((device, index) => {
       const option = document.createElement("option");
       option.value = device.deviceId;
@@ -53,13 +60,33 @@ export function setupMicTest() {
     if (!selectedDeviceId) {
       selectedDeviceId = micSelector.value;
     }
+
+    micStatus.textContent = "✅ Mic list refreshed.";
+  }
+
+  // 👂 Auto refresh on device change
+  navigator.mediaDevices.addEventListener("devicechange", async () => {
+    console.log("🔌 Device change detected — refreshing mic list");
+    micStatus.textContent = "🔌 New device detected...";
+    await refreshMicList();
   });
+
+  // 🔁 Manual refresh button
+  if (refreshBtn) {
+  refreshBtn.addEventListener("click", async () => {
+    micStatus.textContent = "🔁 Refreshing mic list...";
+    await refreshMicList(true);
+  });
+}
+
+
+  // ⏳ Initial population
+  await refreshMicList(true);
 
   micSelector.addEventListener("change", async () => {
     selectedDeviceId = micSelector.value;
     localStorage.setItem("mic-test-device-id", selectedDeviceId);
 
-    // If test is active, restart with the new mic
     if (isRunning) {
       stopMicTest();
       await startMicTest();
@@ -117,11 +144,9 @@ export function setupMicTest() {
 
       function draw() {
         animationId = requestAnimationFrame(draw);
-
         analyser.getByteTimeDomainData(dataArray);
         ctx.fillStyle = "#222";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-
         ctx.lineWidth = 2;
         ctx.strokeStyle = "#0f0";
         ctx.beginPath();
