@@ -66,6 +66,7 @@ def compute_background_embedding() -> None:
 
 # ── IDENTIFICATION ───────────────────────────────────────────────────────────
 def identify_speaker(audio_path: str, threshold: float = 0.25) -> tuple[str, float]:
+    print(f"📣 identify_speaker() called — file: {audio_path}, threshold: {threshold}")
     try:
         test_emb = get_embedding(audio_path)
     except Exception:
@@ -116,3 +117,11 @@ def get_speakers_needing_rebuild() -> list[str]:
 rebuild_embeddings_for_speaker = rebuild_embedding
 
 
+# Strict version for secure/manual matches
+def identify_speaker_strict(audio_path: str, threshold: float = 0.5) -> tuple[str, float]:
+    speaker, score = identify_speaker(audio_path, threshold)
+    return (speaker, score) if score >= threshold else ("unknown", score)
+
+# Flexible version, same as current default behavior
+def identify_speaker_flexible(audio_path: str, threshold: float = 0.25) -> tuple[str, float]:
+    return identify_speaker(audio_path, threshold)

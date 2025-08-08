@@ -1,4 +1,6 @@
-23/07/2025 - Lara Whybrow, Creator - Works as far as I can see, but now we have a robust set of tools for training and managing the data and can focus now on refinement and bug fixing. 
+08/08: a lot of improvements to the speaker-detector-client which resulted in a few changes to this backend. 
+
+23/07/2025 - Lara Whybrow, Creator - it has a few bugs that need fixing, but I ma determining if it is data related or software related. Feel free to clone from Github and help with bug fixes. 
 
 # speaker-detector 🎙️
 
@@ -17,19 +19,19 @@ A lightweight CLI tool for speaker enrollment and voice identification, powered 
 
 ## 📦 Installation
 
-Install from [TestPyPI](https://test.pypi.org/):
 
 ```bash
-pip install --index-url https://test.pypi.org/simple/ speaker-detector
+pip install speaker-detector
 
-When installing packages with a stale requirement file you might need to use:  pip install --break-system-packages soundfile to install on WSL Ubuntu
 
-Run this version with -m module flag if you are contributing and want to run server.py:
+When installing packages with a stale requirement file you might need to use:  pip install --break-system-packages soundfile to install on WSL Ubuntu environment.
+
+Run this version with -m module flag if you are having issues with running server.py:
 python3 -m speaker_detector.server
 
 ```
 
-## 🚀 Usage
+## 🚀 Example Usage
 
 ## 🎙️ Enroll a speaker:
 
