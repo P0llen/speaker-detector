@@ -1,25 +1,29 @@
-<!-- /static/components/mic-test/mic-test.html -->
-<link rel="stylesheet" href="/static/components/mic-test/mic-test.css" />
-<!-- /static/components/mic-test/mic-test.html -->
 <link rel="stylesheet" href="/static/components/mic-test/mic-test.css" />
 
 <template id="mic-test-template">
   <div id="mic-test">
-    <div class="card">
-      <h3>Mic Test</h3>
+    <div class="card mic-card">
+      <div class="mic-header">
+        <h3 class="mic-title">Mic Test</h3>
+        <button id="mic-close-btn" class="mic-close" aria-label="Close">×</button>
+      </div>
 
-      <select id="mic-selector"></select>
-      <button id="refresh-mics">🔁 Refresh Mic List</button> <!-- ✅ Add this line -->
+      <label class="mic-row">
+        <span class="mic-label">Input device:</span>
+        <select id="mic-selector"></select>
+        <button id="refresh-mics" title="Refresh microphone list">🔁 Refresh</button>
+      </label>
 
-      <canvas class="visualizer" id="visualizer-mic-test" width="300" height="60"></canvas>
+      <canvas class="visualizer" id="visualizer-mic-test" width="320" height="70"></canvas>
 
-      <div id="identify-result">Awaiting action...</div>
       <p id="mic-test-status">Pending</p>
-      <button id="action-btn">▶️ Start Mic Test</button>
+
+      <!-- Keep this button neutral; JS will set text + classes -->
+      <button id="action-btn" class="btn">…</button>
+
+      <div class="mic-row mic-restart-row">
+        <button id="restart-btn" class="link-reset" type="button" title="Reset to Record">restart</button>
+      </div>
     </div>
   </div>
 </template>
-
-
-<!-- ✅ This is where the template gets mounted -->
-<div id="mic-test-root"></div>

@@ -1,4 +1,4 @@
-/* Base Card */
+/* Base */
 #mic-test .mic-card {
   background: #1c1c1c;
   color: #eee;
@@ -50,46 +50,17 @@
   padding: 6px 10px;
   cursor: pointer;
 }
-#refresh-mics:hover { background: #333; }
-
-/* Primary button with visual states */
-.btn {
+#action-btn {
   width: 100%;
   margin-top: 8px;
+  background: #2a2a2a;
   color: #fff;
-  border: 1px solid transparent;
+  border: 1px solid #444;
   border-radius: 8px;
   padding: 10px 12px;
   cursor: pointer;
-  transition: background .15s ease, border-color .15s ease;
 }
-.btn-record {
-  background: #7a1b1b;
-  border-color: #a23434;
-}
-.btn-record:hover { background: #8a2323; }
-.btn-stop {
-  background: #47402b;
-  border-color: #7a6a3a;
-}
-.btn-stop:hover { background: #5a5037; }
-.btn-play {
-  background: #1e5a2a;
-  border-color: #2e7f3f;
-}
-.btn-play:hover { background: #256d34; }
-
-/* Restart link */
-.mic-restart-row { justify-content: flex-end; margin-top: 2px; }
-.link-reset {
-  background: transparent;
-  border: none;
-  color: #8a8a8a;
-  font-size: 12px;
-  padding: 0;
-  cursor: pointer;
-}
-.link-reset:hover { color: #cfcfcf; text-decoration: underline; }
+#action-btn:hover, #refresh-mics:hover { background: #333; }
 
 /* Visualizer */
 .visualizer {
@@ -110,13 +81,18 @@
   z-index: 9999;
 }
 .mic-overlay.show { display: flex; }
-.mic-modal { margin: auto; outline: none; }
+.mic-modal {
+  margin: auto;
+  outline: none;
+}
 
 /* Sticky launcher button (created by JS) */
 .mic-sticky-btn {
   position: fixed;
   top: 14px;
-  right: 14px; /* left:14px if you want left side */
+  /* left: 14px; change to right:14px if you prefer right side */
+  right: 14px; 
+  left: auto; 
   z-index: 9998;
   background: #1f1f1f;
   color: #fff;
@@ -127,7 +103,7 @@
 }
 .mic-sticky-btn:hover { background: #2a2a2a; }
 
-/* Toasts */
+/* Toasts (JS injects #toast-container) */
 #toast-container {
   position: fixed;
   bottom: 16px;

@@ -8,28 +8,22 @@
 </head>
 <body>
   <div id="loading-overlay">
-    <div class="loader">🔄 Loading Speaker Detector...</div>
-  </div>
+  <div class="loader">🔄 Loading Speaker Detector...</div>
+</div>
 
   <h1>🎡️ Speaker Detector</h1>
 
   <!-- Include all component templates -->
   <div include-html="/static/components/accordion-nav/accordion-nav.html"></div>
+  <div include-html="/static/components/mic-test/mic-test.html"></div>
   <div include-html="/static/components/enroll-speaker/enroll-speaker.html"></div>
   <div include-html="/static/components/identify-speaker/identify-speaker.html"></div>
   <div include-html="/static/components/meeting-mode/meeting-mode.html"></div>
   <div include-html="/static/components/recordings-tab/recordings-tab.html"></div>
   <div include-html="/static/components/mic-popup/mic-popup.html"></div>
   <div include-html="/static/components/correction/correction.html"></div>
-  <div include-html="/static/components/mic-test/mic-test.html"></div>
 
   <!-- ✅ External module to handle includes + script setup -->
   <script type="module" src="/static/scripts/loader.js"></script>
-
-  <!-- ✅ Sticky Mic Test button + popup loader -->
-  <script type="module" src="/static/components/mic-test/mic-test.js"></script>
- 
-
-
 </body>
 </html>

@@ -2,19 +2,15 @@
 import os, signal, time
 from flask import Flask, request, send_from_directory, send_file, jsonify
 from flask_cors import CORS
-from pathlib import Path
 
 # ── Internal Modules ─────────────────────────────────────────
 from speaker_detector.utils.paths import STATIC_DIR, INDEX_HTML, COMPONENTS_DIR
 from speaker_detector.speaker_state import LISTENING_MODE, start_detection_loop, stop_detection_loop, stop_event
-from speaker_detector.constants import BACKEND_VERSION
-
-
+from speaker_detector.routes.version_routes import version_bp
 
 # ── App Setup ────────────────────────────────────────────────
 app = Flask(__name__, static_folder=str(STATIC_DIR))
 CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
-
 
 # ── Routes ──────────────────────────────────────────────────
 @app.route("/api/<path:dummy>", methods=["OPTIONS"])
@@ -25,11 +21,7 @@ def cors_preflight(dummy):
     response.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS"
     return response
 
-
-
-@app.route("/api/version")
-def get_version():
-    return jsonify({"version": BACKEND_VERSION})
+# NOTE: /api/version is provided by version_bp; no inline duplicate here.
 
 @app.route("/")
 def serve_index():
@@ -66,7 +58,6 @@ from speaker_detector.routes.recordings_routes import recordings_bp
 from speaker_detector.routes.meetings_routes import meetings_bp
 from speaker_detector.routes.correction_routes import correction_bp
 
-
 app.register_blueprint(index_bp)
 app.register_blueprint(listening_bp)
 app.register_blueprint(speakers_bp)
@@ -76,13 +67,14 @@ app.register_blueprint(identify_bp)
 app.register_blueprint(recordings_bp)
 app.register_blueprint(meetings_bp)
 app.register_blueprint(correction_bp)
+app.register_blueprint(version_bp)
 
 # ── Interrupt Handler ───────────────────────────────────────
 def handle_interrupt(sig, frame):
     print("🛑 Shutting down cleanly...")
     stop_event.set()
     time.sleep(1)
-    exit(0)
+    raise SystemExit(0)
 
 signal.signal(signal.SIGINT, handle_interrupt)
 
@@ -90,6 +82,6 @@ signal.signal(signal.SIGINT, handle_interrupt)
 if __name__ == "__main__":
     print("🌐 Server running on http://0.0.0.0:9000")
     print(f"🚀 Static folder:     {STATIC_DIR}")
-    print(f"📁 Component folder: {COMPONENTS_DIR}")
-    print(f"📄 Index HTML:       {INDEX_HTML}")
+    print(f"📁 Component folder:  {COMPONENTS_DIR}")
+    print(f"📄 Index HTML:        {INDEX_HTML}")
     app.run(host="0.0.0.0", port=9000, debug=True)
