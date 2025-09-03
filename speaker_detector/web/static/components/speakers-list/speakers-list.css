@@ -29,3 +29,28 @@
   border-radius: 4px;
   cursor: pointer;
 }
+/* Inline status next to rebuild buttons */
+.rebuild-status {
+  margin-left: 8px;
+  font-size: 0.9em;
+}
+
+/* Simple inline progress bar shown during rebuild */
+.progress {
+  display: inline-block;
+  width: 140px;
+  height: 6px;
+  background: #e5e5e5;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.progress .progress-bar {
+  height: 100%;
+  width: 0%;
+  background: #06c;
+  transition: width 0.12s linear;
+}
+.progress.ok .progress-bar { background: #0a0; }
+.progress.err .progress-bar { background: #c00; }

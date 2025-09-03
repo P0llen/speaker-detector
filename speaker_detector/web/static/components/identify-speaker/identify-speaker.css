@@ -20,3 +20,60 @@
   font-weight: bold;
   margin-top: 0.5em;
 }
+
+.ok { color: #0a0; }
+.hint { color: #555; }
+.warn { color: #a60; }
+.action-messages { margin-top: 6px; }
+
+/* Inline progress bar reused for background rebuild */
+.progress {
+  display: inline-block;
+  width: 160px;
+  height: 6px;
+  background: #e5e5e5;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.progress .progress-bar {
+  height: 100%;
+  width: 0%;
+  background: #06c;
+  transition: width 0.12s linear;
+}
+.progress.ok .progress-bar { background: #0a0; }
+.progress.err .progress-bar { background: #c00; }
+
+.live-detect {
+  margin-top: 1em;
+  padding: 0.75em;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background: #fafafa;
+}
+
+.live-detect .controls-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.live-detect .sliders {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 8px 0 12px;
+}
+
+.live-detect label {
+  font-size: 0.9em;
+  display: flex;
+  flex-direction: column;
+}
+
+#live-readout div {
+  margin-top: 4px;
+}
