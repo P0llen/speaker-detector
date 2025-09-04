@@ -17,10 +17,16 @@ try:
     from speaker_detector.constants import (
         DEFAULT_CONFIDENCE_THRESHOLD,
         DEFAULT_INTERVAL_MS,
+        DEFAULT_UNKNOWN_STREAK_LIMIT,
+        DEFAULT_HOLD_TTL_S,
+        DEFAULT_WINDOW_S,
     )
 except Exception:
     DEFAULT_CONFIDENCE_THRESHOLD = 0.75
     DEFAULT_INTERVAL_MS = 3000
+    DEFAULT_UNKNOWN_STREAK_LIMIT = 2
+    DEFAULT_HOLD_TTL_S = 4.0
+    DEFAULT_WINDOW_S = 1.25
 
 SETTINGS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..", "storage"))
 os.makedirs(SETTINGS_DIR, exist_ok=True)
@@ -83,17 +89,17 @@ def _payload(include_defaults: bool = True, persisted_found: bool | None = None)
         "mode": state.LISTENING_MODE.get("mode", "off"),
         "interval_ms": getattr(state, "DETECTION_INTERVAL_MS", DEFAULT_INTERVAL_MS),
         "threshold": getattr(state, "DETECTION_THRESHOLD", DEFAULT_CONFIDENCE_THRESHOLD),
-        "unknown_streak_limit": getattr(state, "UNKNOWN_STREAK_LIMIT", 2),
-        "hold_ttl_s": getattr(state, "HOLD_TTL_S", 4.0),
-        "window_s": getattr(state, "DURATION_S", 1.25),
+        "unknown_streak_limit": getattr(state, "UNKNOWN_STREAK_LIMIT", DEFAULT_UNKNOWN_STREAK_LIMIT),
+        "hold_ttl_s": getattr(state, "HOLD_TTL_S", DEFAULT_HOLD_TTL_S),
+        "window_s": getattr(state, "DURATION_S", DEFAULT_WINDOW_S),
     }
     if include_defaults:
         out["defaults"] = {
             "threshold": DEFAULT_CONFIDENCE_THRESHOLD,
             "interval_ms": DEFAULT_INTERVAL_MS,
-            "unknown_streak_limit": 2,
-            "hold_ttl_s": 4.0,
-            "window_s": 1.25,
+            "unknown_streak_limit": DEFAULT_UNKNOWN_STREAK_LIMIT,
+            "hold_ttl_s": DEFAULT_HOLD_TTL_S,
+            "window_s": DEFAULT_WINDOW_S,
         }
     if persisted_found is not None:
         out["persisted"] = bool(persisted_found)
@@ -105,9 +111,9 @@ def _persist_current():
             "mode": state.LISTENING_MODE.get("mode", "off"),
             "interval_ms": getattr(state, "DETECTION_INTERVAL_MS", DEFAULT_INTERVAL_MS),
             "threshold": getattr(state, "DETECTION_THRESHOLD", DEFAULT_CONFIDENCE_THRESHOLD),
-            "unknown_streak_limit": getattr(state, "UNKNOWN_STREAK_LIMIT", 2),
-            "hold_ttl_s": getattr(state, "HOLD_TTL_S", 4.0),
-            "window_s": getattr(state, "DURATION_S", 1.25),
+            "unknown_streak_limit": getattr(state, "UNKNOWN_STREAK_LIMIT", DEFAULT_UNKNOWN_STREAK_LIMIT),
+            "hold_ttl_s": getattr(state, "HOLD_TTL_S", DEFAULT_HOLD_TTL_S),
+            "window_s": getattr(state, "DURATION_S", DEFAULT_WINDOW_S),
         }
     )
 
@@ -118,9 +124,9 @@ if _persisted:
     state.DETECTION_INTERVAL_MS = _sanitize_interval(_persisted.get("interval_ms"))
     state.DETECTION_THRESHOLD   = _sanitize_threshold(_persisted.get("threshold"))
     # Optional tunables for smoothing and window length
-    state.UNKNOWN_STREAK_LIMIT  = _sanitize_int(_persisted.get("unknown_streak_limit"), lo=0, hi=5, default=2)
-    state.HOLD_TTL_S            = _sanitize_float(_persisted.get("hold_ttl_s"), lo=0.0, hi=10.0, default=4.0)
-    state.DURATION_S            = _sanitize_float(_persisted.get("window_s"), lo=0.5, hi=3.0, default=1.25)
+    state.UNKNOWN_STREAK_LIMIT  = _sanitize_int(_persisted.get("unknown_streak_limit"), lo=0, hi=5, default=DEFAULT_UNKNOWN_STREAK_LIMIT)
+    state.HOLD_TTL_S            = _sanitize_float(_persisted.get("hold_ttl_s"), lo=0.0, hi=10.0, default=DEFAULT_HOLD_TTL_S)
+    state.DURATION_S            = _sanitize_float(_persisted.get("window_s"), lo=0.5, hi=3.0, default=DEFAULT_WINDOW_S)
 
 listening_bp = Blueprint("listening", __name__)
 
@@ -136,9 +142,9 @@ def listening_mode():
         prev_mode      = state.LISTENING_MODE.get("mode", "off")
         prev_interval  = getattr(state, "DETECTION_INTERVAL_MS", DEFAULT_INTERVAL_MS)
         prev_threshold = getattr(state, "DETECTION_THRESHOLD", DEFAULT_CONFIDENCE_THRESHOLD)
-        prev_unknown   = getattr(state, "UNKNOWN_STREAK_LIMIT", 2)
-        prev_hold_ttl  = getattr(state, "HOLD_TTL_S", 4.0)
-        prev_window_s  = getattr(state, "DURATION_S", 1.25)
+        prev_unknown   = getattr(state, "UNKNOWN_STREAK_LIMIT", DEFAULT_UNKNOWN_STREAK_LIMIT)
+        prev_hold_ttl  = getattr(state, "HOLD_TTL_S", DEFAULT_HOLD_TTL_S)
+        prev_window_s  = getattr(state, "DURATION_S", DEFAULT_WINDOW_S)
 
         new_mode      = _sanitize_mode(data.get("mode", prev_mode))
         new_interval  = _sanitize_interval(data.get("interval_ms", prev_interval))

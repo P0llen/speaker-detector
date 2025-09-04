@@ -95,3 +95,106 @@ for f in *.pt; do
     rm "$f"
   fi
 done
+
+
+## HTTP API: Online & Detection State
+
+This backend exposes simple endpoints to let a client know when the server is reachable and when live detection is ready to be polled.
+
+### Online (one-shot SSE)
+
+- Path: `GET /api/online`
+- Headers:
+  - `Content-Type: text/event-stream`
+  - `Cache-Control: no-cache`
+  - `Connection: keep-alive`
+  - `Access-Control-Allow-Origin: http://localhost:5173` (override with env `CLIENT_ORIGIN`)
+- Behavior: immediately emits a single event and closes the stream.
+
+Example event:
+
+```
+event: online
+data: 1
+
+```
+
+This removes the need for heartbeat polling: as soon as the client connects, it can mark the backend as reachable.
+
+### Detection State (SSE)
+
+- Path: `GET /api/detection-state`
+- Emits an immediate state and then re-emits on changes; includes keep-alives.
+- Event name: `detection`
+- Data: `running` | `stopped`
+
+Example stream excerpts:
+
+```
+event: detection
+data: stopped
+
+: keep-alive
+
+event: detection
+data: running
+
+```
+
+Clients can start polling `/api/active-speaker` only when the state is `running`, and pause when `stopped`.
+
+### Active Speaker (readiness semantics)
+
+- Path: `GET /api/active-speaker`
+- Responses:
+  - When listening mode is OFF: `200 { "status": "disabled", "speaker": null, "confidence": null, "is_speaking": false }`
+  - When mode is ON but engine not yet ready (e.g., mic unavailable or loop not running): `200 { "status": "pending", ... }`
+  - When running and healthy: `200` with the usual payload including `speaker`, `confidence`, `is_speaking`, `status: "listening"`, and optional `suggested`.
+
+These semantics avoid red 503s in DevTools while still making state transitions explicit for the client.
+
+### Quick Examples
+
+Curl (SSE streams)
+
+```
+# One-shot online event
+curl -N -H 'Accept: text/event-stream' http://127.0.0.1:9000/api/online
+
+# Detection state stream (emits running|stopped)
+curl -N -H 'Accept: text/event-stream' http://127.0.0.1:9000/api/detection-state
+```
+
+Browser client (minimal)
+
+```js
+// Reachability: mark backend online as soon as server is up
+const online = new EventSource('http://127.0.0.1:9000/api/online');
+online.addEventListener('online', () => {
+  console.log('Backend online');
+  online.close(); // one-shot
+});
+
+// Detection state: start/stop polling active speaker
+let pollTimer = null;
+function startPolling() {
+  if (pollTimer) return;
+  pollTimer = setInterval(async () => {
+    try {
+      const r = await fetch('http://127.0.0.1:9000/api/active-speaker');
+      const j = await r.json();
+      if (j.status === 'disabled' || j.status === 'pending') return; // wait
+      console.log('Active:', j);
+    } catch (e) {
+      console.warn('poll failed', e);
+    }
+  }, 500);
+}
+function stopPolling() { clearInterval(pollTimer); pollTimer = null; }
+
+const detect = new EventSource('http://127.0.0.1:9000/api/detection-state');
+detect.addEventListener('detection', (ev) => {
+  const state = (ev.data || '').trim();
+  if (state === 'running') startPolling(); else stopPolling();
+});
+```

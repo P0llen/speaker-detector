@@ -21,14 +21,52 @@
   align-items: center;
 }
 
+.speakers-list-container .item-left {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.speakers-list-container .speaker-name {
+  font-weight: 600;
+}
+
+.speakers-list-container .recording-count {
+  color: #bbb;
+  font-size: 0.9em;
+}
+
+.speakers-list-container .badge-warn {
+  color: #ffeb3b;
+  font-size: 0.85em;
+}
+
+.speakers-list-container .actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .speakers-list-container button {
-  background: #ff5c5c;
-  color: white;
   border: none;
-  padding: 4px 8px;
+  padding: 2px 6px; /* smaller buttons */
   border-radius: 4px;
   cursor: pointer;
+  font-size: 0.9em;
 }
+
+.speakers-list-container .btn-ghost {
+  background: transparent;
+  color: #ddd;
+}
+
+.speakers-list-container .btn-ghost:hover { color: #fff; }
+
+.speakers-list-container .btn-warn {
+  background: #ff5c5c;
+  color: white;
+}
+
 /* Inline status next to rebuild buttons */
 .rebuild-status {
   margin-left: 8px;

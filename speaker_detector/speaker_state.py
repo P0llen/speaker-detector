@@ -6,7 +6,13 @@ import soundfile as sf
 from datetime import datetime
 import numpy as np
 
-from speaker_detector.constants import DEFAULT_CONFIDENCE_THRESHOLD, DEFAULT_INTERVAL_MS
+from speaker_detector.constants import (
+    DEFAULT_CONFIDENCE_THRESHOLD,
+    DEFAULT_INTERVAL_MS,
+    DEFAULT_WINDOW_S,
+    DEFAULT_UNKNOWN_STREAK_LIMIT,
+    DEFAULT_HOLD_TTL_S,
+)
 from speaker_detector.core import identify_speaker, rank_speakers
 
 # ── Shared Speaker Detection State ─────────────────────────────
@@ -23,7 +29,7 @@ def get_current_speaker():
 LISTENING_MODE = {"mode": "off"}  # Options: "off", "single", "multi"
 DETECTION_INTERVAL_MS = DEFAULT_INTERVAL_MS
 DETECTION_THRESHOLD = DEFAULT_CONFIDENCE_THRESHOLD
-DURATION_S = 1.25  # window length used by detection_loop
+DURATION_S = DEFAULT_WINDOW_S  # window length used by detection_loop
 
 MIC_AVAILABLE = True
 stop_event = threading.Event()
@@ -34,9 +40,9 @@ last_confident = {"speaker": None, "confidence": 0.0}
 last_confident_ts = 0.0  # monotonic timestamp of last confident detection
 unknown_streak = 0
 # Less aggressive holding: switch sooner on unknown/background
-UNKNOWN_STREAK_LIMIT = 2
+UNKNOWN_STREAK_LIMIT = DEFAULT_UNKNOWN_STREAK_LIMIT
 # Stop holding if last confident is too old
-HOLD_TTL_S = 4.0
+HOLD_TTL_S = DEFAULT_HOLD_TTL_S
 
 # ── Background Detection Loop ─────────────────────────────
 
@@ -89,10 +95,13 @@ def detection_loop():
                         if (speaker or "").lower() in ("background", "background_noise"):
                             speaker = "background"
                         suggestion = None
-                        if speaker == "unknown":
-                            ranked = rank_speakers(tmp_path)
-                            if ranked:
-                                suggestion = {"speaker": ranked[0][0], "confidence": round(float(ranked[0][1]), 3)}
+                        try:
+                            if speaker == "unknown":
+                                ranked = rank_speakers(tmp_path)
+                                if ranked:
+                                    suggestion = {"speaker": ranked[0][0], "confidence": round(float(ranked[0][1]), 3)}
+                        except Exception:
+                            pass
 
                         # Age of last confident detection
                         last_age = time.monotonic() - last_confident_ts if last_confident_ts else 1e9
@@ -231,7 +240,7 @@ def get_active_speaker():
         "confidence": current_speaker_state.get("confidence"),
         "is_speaking": current_speaker_state.get("is_speaking", False),
         "status": "listening",
-        "suggested": current_speaker_state.get("suggested")
+        "suggested": current_speaker_state.get("suggested"),
     }
 
 def restart_detection_loop():

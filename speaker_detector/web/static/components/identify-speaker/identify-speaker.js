@@ -28,6 +28,7 @@ const mount = document.getElementById("identify-speaker-root");
   const liveIsSpeakingEl = mount.querySelector("#live-isspeaking");
   const liveBackendStatusEl = mount.querySelector("#live-backend-status");
   const liveSuggestedEl = mount.querySelector("#live-suggested");
+  const resetDefaultsBtn = mount.querySelector('#reset-defaults-btn');
   // Sliders
   const thresholdSlider = mount.querySelector('#threshold-slider');
   const intervalSlider = mount.querySelector('#interval-slider');
@@ -273,6 +274,7 @@ const mount = document.getElementById("identify-speaker-root");
     holdVal.textContent = Number(h).toFixed(1);
     liveStatusEl.textContent = `Status: ${currentSettings.mode === 'off' ? 'idle' : 'listening'}`;
     liveToggleBtn.textContent = currentSettings.mode === 'off' ? '▶️ Start Live' : '⏹️ Stop Live';
+    if (resetDefaultsBtn) resetDefaultsBtn.disabled = false;
   };
 
   const debouncedPost = (() => {
@@ -374,6 +376,18 @@ const mount = document.getElementById("identify-speaker-root");
 
   // Initialize from backend on mount
   fetchSettings();
+
+  // Reset to defaults handler
+  resetDefaultsBtn?.addEventListener('click', () => {
+    const d = (currentSettings && currentSettings.defaults) || null;
+    if (!d) return;
+    thresholdSlider.value = d.threshold;
+    intervalSlider.value = d.interval_ms;
+    windowSlider.value = d.window_s;
+    unknownSlider.value = d.unknown_streak_limit;
+    holdSlider.value = d.hold_ttl_s;
+    applySettingsFromSliders();
+  });
 
   // Rebuild background handler
   rebuildBgBtn?.addEventListener('click', async () => {

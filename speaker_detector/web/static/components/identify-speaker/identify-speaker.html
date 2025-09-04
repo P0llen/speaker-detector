@@ -15,28 +15,34 @@
     <div class="controls-row">
       <button id="live-toggle-btn">▶️ Start Live</button>
       <span id="live-status">Status: idle</span>
+      <button id="reset-defaults-btn" title="Reset sliders to defaults">↩️ Reset to Defaults</button>
     </div>
 
     <div class="sliders">
       <label>
         Threshold: <span id="threshold-value"></span>
         <input type="range" id="threshold-slider" min="0.3" max="0.9" step="0.01" />
+        <small class="hint">How confident the model must be to label a speaker. Higher = stricter (more “unknown”); lower = more labels (more false positives).</small>
       </label>
       <label>
         Interval (ms): <span id="interval-value"></span>
         <input type="range" id="interval-slider" min="200" max="3000" step="50" />
+        <small class="hint">How often detection runs. Lower = more frequent updates and CPU; higher = fewer updates and lower CPU.</small>
       </label>
       <label>
         Window (s): <span id="window-value"></span>
         <input type="range" id="window-slider" min="0.5" max="2.0" step="0.05" />
+        <small class="hint">Length of audio analyzed per check. Longer = smoother but laggier; shorter = snappier but noisier.</small>
       </label>
       <label>
         Unknown streak: <span id="unknown-value"></span>
         <input type="range" id="unknown-slider" min="0" max="5" step="1" />
+        <small class="hint">Consecutive uncertain windows before switching to “unknown”. Higher = more tolerant to brief uncertainty.</small>
       </label>
       <label>
         Hold TTL (s): <span id="hold-value"></span>
         <input type="range" id="hold-slider" min="0" max="10" step="0.5" />
+        <small class="hint">Time to keep the last speaker during silence/uncertainty. Higher = name sticks longer.</small>
       </label>
     </div>
 

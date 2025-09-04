@@ -5,11 +5,17 @@
 
 <template id="enroll-speaker-template">
   <!-- <div id="enroll-speaker" class="accordion-content"> -->
-    <h3>Enroll Speaker</h3>
+    <div class="enroll-container">
+      <div class="enroll-header">
+        <h3>Enroll Speaker</h3>
+      </div>
 
-    <input type="text" id="speaker-id" placeholder="Enter speaker ID" />
-    <button id="enroll-speaker-btn">➕ Enroll Speaker</button>
-    <p class="status" id="enroll-speaker-status">Pending</p>
+      <input type="text" id="speaker-id" placeholder="Enter speaker ID" />
+      <button id="enroll-speaker-btn">➕ Enroll Speaker</button>
+      <p class="status" id="enroll-speaker-status">Pending</p>
+      <div id="enroll-progress-pill" class="progress-indicator">—/—</div>
+      <div id="enroll-preview"></div>
+    </div>
 
     <!-- 🔁 Speakers list will be injected here -->
     <div id="speakers-list-root">

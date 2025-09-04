@@ -2,6 +2,8 @@
   padding: 1em;
 }
 
+.enroll-container { padding: 0 16px; }
+
 #speaker-id {
   padding: 0.5em;
   width: 60%;
@@ -17,6 +19,45 @@
 #enroll-speaker-status {
   margin-top: 0.5em;
   color: #444;
+}
+
+.enroll-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.counter-badge {
+  font-size: 0.9em;
+  color: #ddd;             /* grey when target not reached */
+  background: #2a2a2a;     /* grey background */
+  border: 1px solid #3a3a3a;
+  border-radius: 10px;
+  padding: 2px 8px;
+}
+
+.counter-badge.reached {
+  color: #fff;
+  background: #0d47a1;     /* dark blue when reached */
+  border-color: #0a3d8f;
+}
+
+/* Inline progress badge for the Progress line */
+.progress-indicator {
+  font-size: 0.9em;
+  color: #ddd;
+  background: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  border-radius: 10px;
+  padding: 1px 6px;
+  display: inline-block;
+  margin-left: 0;
+  margin-bottom: 4px;
+}
+.progress-indicator.reached {
+  color: #fff;
+  background: #0d47a1;
+  border-color: #0a3d8f;
 }
 
 #speakers-list {

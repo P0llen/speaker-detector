@@ -5,6 +5,12 @@ body {
   background: #f5f5f5;
 }
 
+/* Global horizontal breathing room for main content */
+.page-pad {
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
 .header {
   background: #007acc;
   color: white;

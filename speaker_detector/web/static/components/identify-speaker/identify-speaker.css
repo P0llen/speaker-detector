@@ -54,6 +54,8 @@
   background: #fafafa;
 }
 
+/* reverted two-column live layout */
+
 .live-detect .controls-row {
   display: flex;
   align-items: center;

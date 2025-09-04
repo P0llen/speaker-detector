@@ -6,6 +6,10 @@ import tempfile, time, os
 from pydub import AudioSegment
 
 from speaker_detector.utils.paths import SPEAKERS_DIR, STORAGE_DIR
+from speaker_detector.constants import (
+    DEFAULT_ENROLL_CLIP_DURATION_S,
+    DEFAULT_ENROLL_TARGET_CLIPS,
+)
 from speaker_detector.core import (
     identify_speaker,
     rebuild_embedding,
@@ -18,6 +22,13 @@ DETECTION_THRESHOLD = 0.75  # local fallback
 
 def get_speaker_folder(name: str) -> Path:
     return SPEAKERS_DIR / name
+
+@speakers_bp.route("/api/enroll-defaults")
+def enroll_defaults():
+    return {
+        "clip_duration_s": DEFAULT_ENROLL_CLIP_DURATION_S,
+        "target_clips": DEFAULT_ENROLL_TARGET_CLIPS,
+    }
 
 @speakers_bp.route("/api/speakers")
 def list_speakers():
@@ -131,7 +142,41 @@ def needs_rebuild():
     
 @speakers_bp.route("/api/active-speaker")
 def active_speaker():
-    from speaker_detector.speaker_state import get_active_speaker
+    from speaker_detector.speaker_state import (
+        get_active_speaker,
+        LISTENING_MODE,
+        MIC_AVAILABLE,
+        detection_thread,
+    )
+
+    # Clarify readiness semantics:
+    # - If mode is OFF: return 200 with status "disabled" (not an error)
+    # - If mode is ON but engine not ready (no mic or thread not running): 503
+    try:
+        mode = LISTENING_MODE.get("mode", "off")
+    except Exception:
+        mode = "off"
+
+    # Mode off: return normal payload (not an error)
+    if mode == "off":
+        payload = {
+            "speaker": None,
+            "confidence": None,
+            "is_speaking": False,
+            "status": "disabled",
+        }
+        return jsonify(payload)
+
+    # Mode on: if engine not ready (no mic or thread not running), return 200 pending
+    thread_alive = bool(getattr(detection_thread, "is_alive", lambda: False)())
+    if not bool(MIC_AVAILABLE) or not thread_alive:
+        return jsonify({
+            "speaker": None,
+            "confidence": None,
+            "is_speaking": False,
+            "status": "pending",
+        })
+
     try:
         result = get_active_speaker()
         if result.get("confidence") is None:

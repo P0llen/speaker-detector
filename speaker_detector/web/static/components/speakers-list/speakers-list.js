@@ -1,5 +1,4 @@
 import {
-  fetchSpeakers,
   deleteSpeaker,
   renameSpeaker,
   improveSpeaker
@@ -30,10 +29,13 @@ export async function setupSpeakersList(root = document.getElementById("speakers
   }
 
   try {
-    const [data, needsRebuild] = await Promise.all([
-      fetchSpeakers(),
-      fetchSpeakersNeedingRebuild()
+    const [data, needsRebuild, enrollDefaults] = await Promise.all([
+      fetch('/api/speakers').then(r=>r.json()),
+      fetchSpeakersNeedingRebuild(),
+      fetch('/api/enroll-defaults').then(r=>r.json()).catch(() => ({ target_clips: 7 }))
     ]);
+
+    const targetClips = (typeof enrollDefaults?.target_clips === 'number') ? enrollDefaults.target_clips : 7;
 
     root.innerHTML = "";
     if (!Array.isArray(data) || data.length === 0) {
@@ -42,20 +44,27 @@ export async function setupSpeakersList(root = document.getElementById("speakers
     }
 
     const list = document.createElement("ul");
+    list.className = 'speakers-list-container';
 
     for (const speaker of data) {
-      const name = typeof speaker === "string" ? speaker : speaker.name || "Unknown";
+      const name = speaker?.name || (typeof speaker === 'string' ? speaker : 'Unknown');
+      const count = typeof speaker?.recordings === 'number' ? speaker.recordings : 0;
       const needs = needsRebuild.includes(name);
 
       const li = document.createElement("li");
       li.innerHTML = `
-        🧠 <strong>${name}</strong>
-        ${needs ? '<span style="color: #ff0;">⚠️ Needs Rebuild</span>' : ""}
-        <button data-action="rename" data-name="${name}">✏️</button>
-        <button data-action="delete" data-name="${name}">🗑️</button>
-        <button data-action="improve" data-name="${name}">➕ Improve</button>
-        <button data-action="rebuild" data-name="${name}">🔁 Rebuild</button>
-        <span class="rebuild-status" data-name="${name}"></span>
+        <div class="item-left">
+          <strong class="speaker-name">${name}</strong>
+          <span class="recording-count">${count}/${targetClips} recordings</span>
+          ${needs ? '<span class="badge-warn">Needs rebuild</span>' : ''}
+        </div>
+        <div class="item-right actions">
+          <button class="btn-ghost" data-action="rename" data-name="${name}">✏️ Rename</button>
+          <button class="btn-ghost" data-action="improve" data-name="${name}">➕ Improve</button>
+          <button class="btn-ghost" data-action="rebuild" data-name="${name}">🔁 Rebuild</button>
+          <button class="btn-warn" data-action="delete" data-name="${name}">🗑️ Delete</button>
+          <span class="rebuild-status" data-name="${name}"></span>
+        </div>
       `;
 
       list.appendChild(li);
