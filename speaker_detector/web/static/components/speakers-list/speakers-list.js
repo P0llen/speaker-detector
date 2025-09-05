@@ -1,8 +1,8 @@
 import {
   deleteSpeaker,
-  renameSpeaker,
-  improveSpeaker
+  renameSpeaker
 } from "/static/scripts/utils/speakers.js";
+import { openImproveModal } from "/static/components/improve-speaker/improve-speaker.js";
 
 // 🆕 helper to get speakers that need rebuilding
 async function fetchSpeakersNeedingRebuild() {
@@ -94,12 +94,12 @@ export async function setupSpeakersList(root = document.getElementById("speakers
         }
 
         if (action === "improve") {
-          const file = await promptAudioFile();
-          if (file) {
-            await improveSpeaker(name, file);
-            alert(`✅ Improved model for "${name}"`);
-            setupSpeakersList(root); // refresh to reflect rebuild-needed status
-          }
+          // Open recording popup for adding more samples
+          const refresh = (ev) => { if (!ev?.detail?.name || ev.detail.name === name) setupSpeakersList(root); };
+          const stop = () => { window.removeEventListener('improve-modal-success', refresh); window.removeEventListener('improve-modal-closed', stop); };
+          window.addEventListener('improve-modal-success', refresh);
+          window.addEventListener('improve-modal-closed', stop);
+          openImproveModal(name);
         }
 
         if (action === "rebuild") {
@@ -177,12 +177,4 @@ export async function setupSpeakersList(root = document.getElementById("speakers
   }
 }
 
-function promptAudioFile() {
-  return new Promise(resolve => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "audio/*";
-    input.onchange = () => resolve(input.files[0]);
-    input.click();
-  });
-}
+// file upload improvement flow replaced by in-app recording modal

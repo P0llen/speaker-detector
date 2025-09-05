@@ -54,6 +54,15 @@
   background: #fafafa;
 }
 
+/* Reason tag colors for quick interpretation */
+.reason-tag { display: inline-block; padding: 1px 6px; border-radius: 10px; font-size: 0.85em; border: 1px solid transparent; }
+.reason-spk-margin { color: #0a5; background: #e9f8f0; border-color: #a7e3c8; }
+.reason-spk-thr    { color: #06c; background: #e7f1fb; border-color: #b9d6fb; }
+.reason-bg-override{ color: #c06600; background: #fff3e6; border-color: #ffd197; }
+.reason-unknown    { color: #666; background: #f3f3f3; border-color: #ddd; }
+.reason-spk-weak   { color: #aa8600; background: #fff8e1; border-color: #ffe58f; }
+.reason-bg-weak    { color: #0a8080; background: #e6f7f7; border-color: #a7e3e3; }
+
 /* reverted two-column live layout */
 
 .live-detect .controls-row {
@@ -66,9 +75,12 @@
 .live-detect .sliders {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
-  margin: 8px 0 12px;
+  gap: 14px;
+  margin: 12px 0 20px;
 }
+
+.live-detect details { margin-top: 12px; }
+.live-detect .background-tools { margin-top: 16px; }
 
 .live-detect label {
   font-size: 0.9em;
@@ -78,4 +90,27 @@
 
 #live-readout div {
   margin-top: 4px;
+}
+
+/* Two-column layout for Identify tab */
+.identify-layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.identify-layout .right-pane {
+  position: sticky;
+  top: 12px;
+  align-self: start;
+}
+
+@media (max-width: 900px) {
+  .identify-layout {
+    grid-template-columns: 1fr;
+  }
+  .identify-layout .right-pane {
+    position: static;
+  }
 }

@@ -3,65 +3,125 @@
 <!-- <script type="module" src="/static/components/identify-speaker/identify-speaker.js"></script> -->
 
 <template id="identify-speaker-template">
-  <h3>Identify Speaker</h3>
-  <button id="identify-speaker-btn">🔍 Identify Speaker</button>
-  <canvas class="visualizer" id="visualizer-step-3"></canvas>
-  <div id="identify-result-step-3">Awaiting action...</div>
+  <div class="identify-layout">
+    <div class="left-pane">
+      <button id="identify-speaker-btn">🔍 Identify Speaker</button>
+      <canvas class="visualizer" id="visualizer-step-3"></canvas>
+      <section class="live-detect">
+        <h4>Live Detection</h4>
+        <div class="controls-row">
+          <button id="live-toggle-btn">▶️ Start Live</button>
+          <span id="live-status">Status: idle</span>
+          <button id="reset-defaults-btn" title="Reset sliders to defaults">↩️ Reset to Defaults</button>
+        </div>
+        <!-- Background-as-speaker option removed to avoid confusion -->
+        <label style="display:block; margin:6px 0;">
+          <input type="checkbox" id="session-log-toggle" /> Enable session logging
+          <small class="hint">Save UI/API logs for the next live session (shown at right).</small>
+        </label>
 
-  <hr />
+        <div class="sliders">
+          <label>
+            Interval (ms): <span id="interval-value"></span>
+            <input type="range" id="interval-slider" min="200" max="6000" step="50" />
+            <small class="hint">How often detection runs. If Interval &lt; Window, updates are effectively paced by the Window capture time.</small>
+          </label>
+          <label>
+            Window (s): <span id="window-value"></span>
+            <input type="range" id="window-slider" min="0.5" max="5.0" step="0.05" />
+            <small class="hint">Length of audio analyzed per check. Recommended 3–5s for accuracy. Note: if Interval &lt; Window, updates are paced by the Window length.</small>
+          </label>
+          <label>
+            Speaker threshold: <span id="spk-thresh-value"></span>
+            <input type="range" id="spk-thresh-slider" min="0.2" max="0.95" step="0.01" />
+            <small class="hint">Accept a named speaker when score ≥ this. Default: <span id="def-spk-thresh"></span></small>
+          </label>
+          <label>
+            Background threshold: <span id="bg-thresh-value"></span>
+            <input type="range" id="bg-thresh-slider" min="0.2" max="0.95" step="0.01" />
+            <small class="hint">Accept background only when score is above this. Default: <span id="def-bg-thresh"></span></small>
+          </label>
+        </div>
 
-  <section class="live-detect">
-    <h4>Live Detection</h4>
-    <div class="controls-row">
-      <button id="live-toggle-btn">▶️ Start Live</button>
-      <span id="live-status">Status: idle</span>
-      <button id="reset-defaults-btn" title="Reset sliders to defaults">↩️ Reset to Defaults</button>
+        <details class="advanced">
+          <summary>Advanced Tuning</summary>
+          <div class="sliders">
+            <label>
+              Unknown streak: <span id="unknown-value"></span>
+              <input type="range" id="unknown-slider" min="0" max="5" step="1" />
+              <small class="hint">Consecutive uncertain windows before switching to “unknown”. Higher = more tolerant to brief uncertainty.</small>
+            </label>
+            <label>
+              Hold TTL (s): <span id="hold-value"></span>
+              <input type="range" id="hold-slider" min="0" max="10" step="0.5" />
+              <small class="hint">Time to keep the last speaker during silence/uncertainty. Higher = name sticks longer.</small>
+            </label>
+            <label>
+              Decision margin: <span id="margin-value"></span>
+              <input type="range" id="margin-slider" min="0.00" max="0.20" step="0.005" />
+              <small class="hint">Require top1 − top2 ≥ margin to auto-accept. Default: <span id="def-margin"></span></small>
+            </label>
+            <label>
+              BG over speaker margin: <span id="bg-over-value"></span>
+              <input type="range" id="bg-over-slider" min="0.00" max="0.10" step="0.005" />
+              <small class="hint">How much background must beat speaker to win. Default: <span id="def-bg-over"></span></small>
+            </label>
+            <label>
+              RMS speech gate: <span id="rms-value"></span>
+              <input type="range" id="rms-slider" min="0.000" max="0.020" step="0.0005" />
+              <small class="hint">Min RMS to treat audio as speech (helps avoid false background). Default: <span id="def-rms"></span></small>
+            </label>
+            <label>
+              Confidence smoothing: <span id="conf-smooth-value"></span>
+              <input type="range" id="conf-smooth-slider" min="0.00" max="1.00" step="0.05" />
+              <small class="hint">EMA smoothing of confidence [0=no smoothing, 1=raw]. Default: <span id="def-conf-smooth"></span></small>
+            </label>
+            <label style="margin-top:6px; display:block;">
+              <input type="checkbox" id="embed-avg-toggle" /> Rolling embedding average
+              <small class="hint">Average the last few window embeddings (recommended: 3) to improve stability.</small>
+            </label>
+            <label>
+              Embed avg windows: <span id="embed-avg-n-value"></span>
+              <input type="range" id="embed-avg-n-slider" min="1" max="8" step="1" />
+            </label>
+            <label style="margin-top:6px; display:block;">
+              <input type="checkbox" id="vad-trim-toggle" /> VAD-based trimming
+              <small class="hint">Trim low-energy regions inside each live window before scoring.</small>
+            </label>
+          </div>
+        </details>
+
+        <div class="background-tools">
+          <p class="hint">Tip: After adding background noise samples (via API or other tools), click rebuild to update the background model.</p>
+          <button id="rebuild-background-btn">🌫️ Rebuild Background</button>
+          <span id="rebuild-background-status"></span>
+        </div>
+      </section>
     </div>
-
-    <div class="sliders">
-      <label>
-        Threshold: <span id="threshold-value"></span>
-        <input type="range" id="threshold-slider" min="0.3" max="0.9" step="0.01" />
-        <small class="hint">How confident the model must be to label a speaker. Higher = stricter (more “unknown”); lower = more labels (more false positives).</small>
-      </label>
-      <label>
-        Interval (ms): <span id="interval-value"></span>
-        <input type="range" id="interval-slider" min="200" max="3000" step="50" />
-        <small class="hint">How often detection runs. Lower = more frequent updates and CPU; higher = fewer updates and lower CPU.</small>
-      </label>
-      <label>
-        Window (s): <span id="window-value"></span>
-        <input type="range" id="window-slider" min="0.5" max="2.0" step="0.05" />
-        <small class="hint">Length of audio analyzed per check. Longer = smoother but laggier; shorter = snappier but noisier.</small>
-      </label>
-      <label>
-        Unknown streak: <span id="unknown-value"></span>
-        <input type="range" id="unknown-slider" min="0" max="5" step="1" />
-        <small class="hint">Consecutive uncertain windows before switching to “unknown”. Higher = more tolerant to brief uncertainty.</small>
-      </label>
-      <label>
-        Hold TTL (s): <span id="hold-value"></span>
-        <input type="range" id="hold-slider" min="0" max="10" step="0.5" />
-        <small class="hint">Time to keep the last speaker during silence/uncertainty. Higher = name sticks longer.</small>
-      </label>
+    <div class="right-pane">
+      <h4>Live Output <button id="reason-legend-btn" class="btn-ghost" title="Show reason legend" style="margin-left:6px;">❓ Legend</button></h4>
+      <div id="live-readout">
+        <div>Speaker: <strong id="live-speaker">—</strong></div>
+        <div>Confidence: <strong id="live-confidence">—</strong></div>
+        <div>Speaking: <strong id="live-isspeaking">—</strong></div>
+        <div>Status: <strong id="live-backend-status">—</strong></div>
+        <div>Suggested: <strong id="live-suggested">—</strong></div>
+        <div>Scores: <strong id="live-scores">—</strong></div>
+        <div>Run: <strong id="live-config">—</strong></div>
+        <div id="live-hints" class="hint" style="margin-top:6px;"></div>
+      </div>
+      <details id="live-diagnostics" style="margin-top:10px;">
+        <summary>Diagnostics</summary>
+        <div id="live-diag-content" class="hint" style="margin-top:6px;">
+          <em>Open to see live pipeline metrics (window, VAD trim, averaging, timings).</em>
+        </div>
+      </details>
+      <h4 style="margin-top:12px;">Last Identify</h4>
+      <div id="identify-result-step-3">Awaiting action...</div>
+      <h4 style="margin-top:12px;">Session Logs <button id="clear-logs-btn" class="btn-ghost" style="margin-left:8px;">🧹 Clear All</button></h4>
+      <div id="session-logs"></div>
     </div>
-
-    <div id="live-readout">
-      <div>Speaker: <strong id="live-speaker">—</strong></div>
-      <div>Confidence: <strong id="live-confidence">—</strong></div>
-      <div>Speaking: <strong id="live-isspeaking">—</strong></div>
-      <div>Status: <strong id="live-backend-status">—</strong></div>
-      <div>Suggested: <strong id="live-suggested">—</strong></div>
-    </div>
-
-    <hr />
-
-    <div class="background-tools">
-      <p class="hint">Tip: After adding background noise samples (via API or other tools), click rebuild to update the background model.</p>
-      <button id="rebuild-background-btn">🌫️ Rebuild Background</button>
-      <span id="rebuild-background-status"></span>
-    </div>
-  </section>
+  </div>
 </template>
 
 <div id="identify-speaker-root"></div>

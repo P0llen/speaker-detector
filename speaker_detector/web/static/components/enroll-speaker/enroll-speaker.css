@@ -4,15 +4,10 @@
 
 .enroll-container { padding: 0 16px; }
 
-#speaker-id {
-  padding: 0.5em;
-  width: 60%;
-  margin-right: 10px;
-}
-
-#enroll-speaker-btn {
+#guided-enroll-btn {
   padding: 0.5em 1em;
   font-size: 1em;
+  margin-left: 8px;
   cursor: pointer;
 }
 
@@ -27,41 +22,28 @@
   justify-content: space-between;
 }
 
-.counter-badge {
-  font-size: 0.9em;
-  color: #ddd;             /* grey when target not reached */
-  background: #2a2a2a;     /* grey background */
-  border: 1px solid #3a3a3a;
-  border-radius: 10px;
-  padding: 2px 8px;
-}
-
-.counter-badge.reached {
-  color: #fff;
-  background: #0d47a1;     /* dark blue when reached */
-  border-color: #0a3d8f;
-}
-
-/* Inline progress badge for the Progress line */
-.progress-indicator {
-  font-size: 0.9em;
-  color: #ddd;
-  background: #2a2a2a;
-  border: 1px solid #3a3a3a;
-  border-radius: 10px;
-  padding: 1px 6px;
-  display: inline-block;
-  margin-left: 0;
-  margin-bottom: 4px;
-}
-.progress-indicator.reached {
-  color: #fff;
-  background: #0d47a1;
-  border-color: #0a3d8f;
-}
+/* removed old badge styles for quick enroll progress */
 
 #speakers-list {
   margin-top: 1em;
   list-style-type: none;
   padding-left: 0;
 }
+
+/* Modal styling for guided enrollment */
+.modal.hidden { display: none; }
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+.modal-content { background: #fff; color: #111; width: min(720px, 92vw); border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,0.3); }
+.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid #e5e5e5; }
+.modal-header h4 { margin: 0; }
+.close-modal { background: transparent; color: #333; border: none; cursor: pointer; font-size: 1.1em; }
+.wizard-body { padding: 12px; }
+.wizard-progress { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; margin-bottom: 10px; }
+.wizard-progress .bar { height: 8px; background: #e5e5e5; border-radius: 4px; overflow: hidden; }
+.wizard-progress .bar.filled { background: #0d47a1; }
+.wizard-prompt { padding: 8px; background: #f7faff; border: 1px solid #e1eefc; border-radius: 6px; margin-bottom: 8px; }
+.wizard-status { color: #333; margin-bottom: 8px; min-height: 20px; }
+.wizard-actions { display: flex; gap: 8px; }
+.wizard-actions .btn-warn { background: #ff5c5c; color: #fff; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; }
+.wizard-actions button { padding: 6px 10px; border: none; border-radius: 4px; background: #007acc; color: #fff; cursor: pointer; }
+.wizard-actions button:disabled { opacity: 0.6; cursor: default; }

@@ -7,6 +7,7 @@ import { setupRecordingsTab } from "/static/components/recordings-tab/recordings
 import { setupSpeakersList } from "/static/components/speakers-list/speakers-list.js";
 import { setupCorrection } from "/static/components/correction/correction.js";
 import { setupMicPopup } from "/static/components/mic-popup/mic-popup.js";
+import { setupImproveSpeaker } from "/static/components/improve-speaker/improve-speaker.js";
 
 // ✅ Export setup block so loader can run it later
 export function runSetup() {
@@ -19,4 +20,5 @@ export function runSetup() {
 
   setupCorrection();
   setupMicPopup();
+  setupImproveSpeaker();
 }

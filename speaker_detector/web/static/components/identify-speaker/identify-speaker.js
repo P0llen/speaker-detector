@@ -30,19 +30,50 @@ const mount = document.getElementById("identify-speaker-root");
   const liveSuggestedEl = mount.querySelector("#live-suggested");
   const resetDefaultsBtn = mount.querySelector('#reset-defaults-btn');
   // Sliders
-  const thresholdSlider = mount.querySelector('#threshold-slider');
   const intervalSlider = mount.querySelector('#interval-slider');
   const windowSlider = mount.querySelector('#window-slider');
   const unknownSlider = mount.querySelector('#unknown-slider');
   const holdSlider = mount.querySelector('#hold-slider');
-  const thresholdVal = mount.querySelector('#threshold-value');
+  // Advanced sliders
+  const spkThreshSlider = mount.querySelector('#spk-thresh-slider');
+  const bgThreshSlider = mount.querySelector('#bg-thresh-slider');
+  const marginSlider = mount.querySelector('#margin-slider');
+  const bgOverSlider = mount.querySelector('#bg-over-slider');
+  const rmsSlider = mount.querySelector('#rms-slider');
+  const confSmoothSlider = mount.querySelector('#conf-smooth-slider');
+  const sessionLogToggle = mount.querySelector('#session-log-toggle');
+  const embedAvgToggle = mount.querySelector('#embed-avg-toggle');
+  const embedAvgNSlider = mount.querySelector('#embed-avg-n-slider');
+  const embedAvgNVal = mount.querySelector('#embed-avg-n-value');
+  const vadTrimToggle = mount.querySelector('#vad-trim-toggle');
   const intervalVal = mount.querySelector('#interval-value');
   const windowVal = mount.querySelector('#window-value');
   const unknownVal = mount.querySelector('#unknown-value');
   const holdVal = mount.querySelector('#hold-value');
+  const spkThreshVal = mount.querySelector('#spk-thresh-value');
+  const bgThreshVal = mount.querySelector('#bg-thresh-value');
+  const marginVal = mount.querySelector('#margin-value');
+  const bgOverVal = mount.querySelector('#bg-over-value');
+  const rmsVal = mount.querySelector('#rms-value');
+  const confSmoothVal = mount.querySelector('#conf-smooth-value');
+  // Defaults display
+  const defSpk = mount.querySelector('#def-spk-thresh');
+  const defBg = mount.querySelector('#def-bg-thresh');
+  const defMargin = mount.querySelector('#def-margin');
+  const defBgOver = mount.querySelector('#def-bg-over');
+  const defRms = mount.querySelector('#def-rms');
+  const defConfSmooth = mount.querySelector('#def-conf-smooth');
   // Background rebuild controls
   const rebuildBgBtn = mount.querySelector('#rebuild-background-btn');
   const rebuildBgStatus = mount.querySelector('#rebuild-background-status');
+  const logsContainer = mount.querySelector('#session-logs');
+  const clearLogsBtn = mount.querySelector('#clear-logs-btn');
+  const diagDetails = mount.querySelector('#live-diagnostics');
+  const diagContent = mount.querySelector('#live-diag-content');
+  let diagOpen = false;
+  const reasonLegendBtn = mount.querySelector('#reason-legend-btn');
+  const liveHintsEl = mount.querySelector('#live-hints');
+  const recentReasons = [];
 
   // Helper: reset Identify UI to initial state without page reload
   const resetIdentifyUI = () => {
@@ -142,6 +173,8 @@ const mount = document.getElementById("identify-speaker-root");
                     note.className = 'ok';
                     note.textContent = `Added clip to ${speaker}. Consider rebuilding.`;
                     msgBar.appendChild(note);
+                    try { alert(`Saved clip to ${speaker}. Consider rebuilding their model.`); } catch {}
+                    resetIdentifyUI();
                   }
                 } catch (e) { console.error('Improve failed', e); }
               };
@@ -171,17 +204,19 @@ const mount = document.getElementById("identify-speaker-root");
                     fd.append('audio', blob, `bg_${Date.now()}.webm`);
                     const r = await fetch('/api/background_noise', { method: 'POST', body: fd });
                     const j = await r.json();
-                    if (r.ok && j.success) {
-                      suggBtn.disabled = true; suggBtn.textContent = '✅ Background added';
-                      const note = document.createElement('div');
-                      note.className = 'ok';
-                      note.textContent = 'Background sample added. Click Rebuild Background below to update the model.';
-                      msgBar.appendChild(note);
-                    } else {
-                      alert(`Failed to save background: ${j.error || r.statusText}`);
-                    }
-                    return;
+                  if (r.ok && j.success) {
+                    suggBtn.disabled = true; suggBtn.textContent = '✅ Background added';
+                    const note = document.createElement('div');
+                    note.className = 'ok';
+                    note.textContent = 'Background sample added. Click Rebuild Background below to update the model.';
+                    msgBar.appendChild(note);
+                    try { alert('Background sample added. Please rebuild the background model.'); } catch {}
+                    resetIdentifyUI();
+                  } else {
+                    alert(`Failed to save background: ${j.error || r.statusText}`);
                   }
+                  return;
+                }
 
                   const target = prompt('Confirm speaker name:', name) || name;
                   if (!target) return;
@@ -197,6 +232,8 @@ const mount = document.getElementById("identify-speaker-root");
                   note.className = 'ok';
                   note.textContent = `Saved clip to ${target}. Consider rebuilding.`;
                   msgBar.appendChild(note);
+                  try { alert(`Saved clip to ${target}. Consider rebuilding.`); } catch {}
+                  resetIdentifyUI();
                 } catch (e) { console.error('Accept suggestion failed', e); }
               };
               btnBar.appendChild(suggBtn);
@@ -219,6 +256,8 @@ const mount = document.getElementById("identify-speaker-root");
                   note.className = 'ok';
                   note.textContent = 'Background sample added. Click Rebuild Background below to update the model.';
                   msgBar.appendChild(note);
+                  try { alert('Background sample added. Please rebuild the background model.'); } catch {}
+                  resetIdentifyUI();
                 } else {
                   alert(`Failed to save background: ${j.error || r.statusText}`);
                 }
@@ -252,26 +291,226 @@ const mount = document.getElementById("identify-speaker-root");
   // ---- Live detection wiring ----
   let pollTimer = null;
   let currentSettings = null;
+  let currentSessionId = null;
+  let uiLogs = [];
+  let restoreConsoleCapture = null;
+
+  const logLine = (msg) => {
+    const ts = isoLocal(new Date());
+    uiLogs.push(`${ts} ${msg}`);
+  };
+
+  function isoLocal(d) {
+    const pad = (n, l = 2) => String(n).padStart(l, '0');
+    return (
+      d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + 'T' +
+      pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()) + '.' + pad(d.getMilliseconds(), 3)
+    );
+  }
+
+  const showLogPopup = (title, text) => {
+    const overlay = document.createElement('div');
+    overlay.style.position = 'fixed'; overlay.style.inset = '0'; overlay.style.background = 'rgba(0,0,0,0.5)';
+    overlay.style.zIndex = '9999'; overlay.style.display = 'flex'; overlay.style.alignItems = 'center'; overlay.style.justifyContent = 'center';
+    const box = document.createElement('div');
+    box.style.background = '#fff'; box.style.color = '#222'; box.style.width = 'min(800px, 90vw)'; box.style.height = 'min(70vh, 600px)';
+    box.style.borderRadius = '8px'; box.style.padding = '12px'; box.style.display = 'flex'; box.style.flexDirection = 'column';
+    const hdr = document.createElement('div'); hdr.textContent = title; hdr.style.fontWeight = '600'; hdr.style.marginBottom = '8px';
+    // Try to render grouped, typed log view; otherwise fall back to raw text
+    const content = renderGroupedLog(text) || (() => { const pre = document.createElement('pre'); pre.textContent = text; pre.style.flex = '1'; pre.style.overflow = 'auto'; return pre; })();
+    const actions = document.createElement('div'); actions.style.marginTop = '8px';
+    const copyBtn = document.createElement('button'); copyBtn.textContent = 'Copy All';
+    copyBtn.onclick = async () => { try { await navigator.clipboard.writeText(text); copyBtn.textContent = 'Copied'; setTimeout(()=>copyBtn.textContent='Copy All',1200);} catch {} };
+    const closeBtn = document.createElement('button'); closeBtn.textContent = 'Close'; closeBtn.style.marginLeft = '8px'; closeBtn.onclick = () => overlay.remove();
+    actions.appendChild(copyBtn); actions.appendChild(closeBtn);
+    box.appendChild(hdr); box.appendChild(content); box.appendChild(actions);
+    overlay.appendChild(box); document.body.appendChild(overlay);
+  };
+
+  function renderGroupedLog(text) {
+    if (!text || typeof text !== 'string') return null;
+    const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    // Parse ISO timestamps with optional fractional seconds and 'Z'
+    const reLine = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z)?)\s*(.*)$/;
+    const reAnyTs = /(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z)?)/;
+    const groups = new Map();
+    for (const ln of lines) {
+      let tsStr = null, rest = '';
+      let m = ln.match(reLine);
+      if (m) { tsStr = m[1]; rest = m[2] || ''; }
+      else {
+        const m2 = ln.match(reAnyTs);
+        if (m2) { tsStr = m2[1]; rest = ln.replace(m2[1], '').trim(); }
+      }
+      if (!tsStr) tsStr = '—';
+      let tsMs = Date.parse(tsStr);
+      if (Number.isNaN(tsMs)) {
+        // Try coercing to UTC
+        tsMs = Date.parse(tsStr + 'Z');
+      }
+      const tsKey = isFinite(tsMs) ? isoLocal(new Date(tsMs)).slice(0,19) : tsStr.slice(0,19); // group by local second
+      const isBackend = ln.includes('/api/active-speaker payload=');
+      const kind = isBackend ? 'backend' : 'frontend';
+      const msg = rest || ln;
+      const arr = groups.get(tsKey) || [];
+      arr.push({ kind, msg, raw: ln, tsMs: isFinite(tsMs) ? tsMs : 0 });
+      groups.set(tsKey, arr);
+    }
+    if (groups.size === 0) return null;
+
+    const wrapper = document.createElement('div');
+    wrapper.style.flex = '1';
+    wrapper.style.overflow = 'auto';
+    wrapper.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+    wrapper.style.fontSize = '12px';
+
+    const keys = Array.from(groups.keys()).sort();
+    for (const ts of keys) {
+      const block = document.createElement('div');
+      block.style.borderBottom = '1px solid #eee';
+      block.style.padding = '6px 0';
+      const header = document.createElement('div');
+      // Render header in local time for clarity
+      const arr = groups.get(ts) || [];
+      const baseMs = arr.length ? arr.slice().sort((a,b)=>a.tsMs-b.tsMs)[0].tsMs : null;
+      header.textContent = baseMs ? isoLocal(new Date(baseMs)).slice(0,19) : ts;
+      header.style.color = '#555';
+      header.style.fontWeight = '600';
+      header.style.marginBottom = '4px';
+      block.appendChild(header);
+      const entries = (groups.get(ts) || []).slice().sort((a, b) => a.tsMs - b.tsMs);
+      for (const entry of entries) {
+        const line = document.createElement('div');
+        const tag = document.createElement('span');
+        tag.textContent = entry.kind === 'backend' ? 'backend' : 'frontend';
+        tag.style.display = 'inline-block';
+        tag.style.minWidth = '68px';
+        tag.style.marginRight = '8px';
+        tag.style.fontWeight = entry.kind === 'backend' ? '700' : '600';
+        tag.style.color = entry.kind === 'backend' ? '#0a4' : '#06c';
+        const textSpan = document.createElement('span');
+        textSpan.textContent = entry.msg || entry.raw;
+        line.appendChild(tag);
+        line.appendChild(textSpan);
+        block.appendChild(line);
+      }
+      wrapper.appendChild(block);
+    }
+    return wrapper;
+  }
+
+  function enableConsoleCapture(onEmit) {
+    const orig = { log: console.log, info: console.info, warn: console.warn, error: console.error };
+    const wrap = (level) => (...args) => { try { onEmit(level, args); } catch {} try { orig[level](...args); } catch {} };
+    console.log = wrap('log');
+    console.info = wrap('info');
+    console.warn = wrap('warn');
+    console.error = wrap('error');
+    return () => { console.log = orig.log; console.info = orig.info; console.warn = orig.warn; console.error = orig.error; };
+  }
+
+  const pushSessionEntry = (sid) => {
+    if (!logsContainer) return;
+    const combined = `${sid}.log`;
+    const row = document.createElement('div'); row.style.marginTop = '6px';
+    row.innerHTML = `
+      <code>${sid}</code>
+      <button data-view class="btn-ghost" style="margin-left:8px;">View</button>
+      <button data-del class="btn-warn" title="Delete" style="margin-left:8px;">🗑️</button>
+    `;
+    logsContainer.prepend(row);
+
+    const onView = async () => {
+      // Prefer combined file; fallback to merging legacy ui_ and api_ files
+      try {
+        let text = '';
+        let res = await fetch(`/api/logs/file/${encodeURIComponent(combined)}`);
+        if (res.ok) {
+          text = await res.text();
+        } else {
+          const parts = [];
+          try { const r1 = await fetch(`/api/logs/file/${encodeURIComponent('ui_' + sid + '.log')}`); if (r1.ok) parts.push(await r1.text()); } catch {}
+          try { const r2 = await fetch(`/api/logs/file/${encodeURIComponent('api_' + sid + '.log')}`); if (r2.ok) parts.push(await r2.text()); } catch {}
+          if (!parts.length) throw new Error('No log found for session');
+          text = parts.join('\n');
+        }
+        showLogPopup(combined, text);
+      } catch (e) {
+        alert('Failed to load log: ' + e.message);
+      }
+    };
+
+    const onDelete = async () => {
+      if (!confirm(`Delete ${combined}?`)) return;
+      try {
+        // Always attempt to remove combined and legacy files to prevent reappearance on refresh
+        await Promise.allSettled([
+          fetch(`/api/logs/file/${encodeURIComponent(combined)}`, { method: 'DELETE' }),
+          fetch(`/api/logs/file/${encodeURIComponent('ui_' + sid + '.log')}`, { method: 'DELETE' }),
+          fetch(`/api/logs/file/${encodeURIComponent('api_' + sid + '.log')}`, { method: 'DELETE' }),
+        ]);
+        // If we are currently logging to this session, stop logging immediately
+        if (currentSessionId && currentSessionId === sid) {
+          currentSessionId = null;
+          uiLogs = [];
+        }
+        row.remove();
+      } catch (e) {
+        alert('Failed to delete log: ' + e.message);
+      }
+    };
+
+    row.querySelector('[data-view]')?.addEventListener('click', onView);
+    row.querySelector('[data-del]')?.addEventListener('click', onDelete);
+  };
 
   const fetchSettings = async () => {
     const res = await fetch('/api/listening-mode');
     currentSettings = await res.json();
     // Initialize sliders and readouts
-    const t = currentSettings.threshold ?? 0.75;
     const i = currentSettings.interval_ms ?? 3000;
     const w = currentSettings.window_s ?? 1.25;
     const u = currentSettings.unknown_streak_limit ?? 2;
     const h = currentSettings.hold_ttl_s ?? 4.0;
-    thresholdSlider.value = t;
+    const spk = currentSettings.spk_threshold ?? currentSettings.defaults?.spk_threshold ?? 0.4;
+    const bg = currentSettings.bg_threshold ?? currentSettings.defaults?.bg_threshold ?? 0.55;
+    const m = currentSettings.decision_margin ?? currentSettings.defaults?.decision_margin ?? 0.07;
+    const bgo = currentSettings.bg_margin_over_spk ?? currentSettings.defaults?.bg_margin_over_spk ?? 0.04;
+    const rms = currentSettings.rms_speech_gate ?? currentSettings.defaults?.rms_speech_gate ?? 0.001;
+    const confSmooth = currentSettings.confidence_smoothing ?? currentSettings.defaults?.confidence_smoothing ?? 0.30;
+    const bgAsSpk = !!(currentSettings.background_as_speaker ?? currentSettings.defaults?.background_as_speaker ?? false);
     intervalSlider.value = i;
     windowSlider.value = w;
     unknownSlider.value = u;
     holdSlider.value = h;
-    thresholdVal.textContent = Number(t).toFixed(2);
+    spkThreshSlider.value = spk;
+    bgThreshSlider.value = bg;
+    marginSlider.value = m;
+    bgOverSlider.value = bgo;
+    rmsSlider.value = rms;
+    if (confSmoothSlider) confSmoothSlider.value = confSmooth;
+    if (sessionLogToggle) sessionLogToggle.checked = !!(currentSettings.session_logging ?? currentSettings.defaults?.session_logging ?? false);
+    if (embedAvgToggle) embedAvgToggle.checked = !!(currentSettings.embed_avg ?? currentSettings.defaults?.embed_avg ?? false);
+    if (embedAvgNSlider) embedAvgNSlider.value = (currentSettings.embed_avg_n ?? currentSettings.defaults?.embed_avg_n ?? 3);
+    if (embedAvgNVal) embedAvgNVal.textContent = String(embedAvgNSlider?.value || '3');
+    if (vadTrimToggle) vadTrimToggle.checked = !!(currentSettings.vad_trim ?? currentSettings.defaults?.vad_trim ?? false);
     intervalVal.textContent = `${i}`;
     windowVal.textContent = Number(w).toFixed(2);
     unknownVal.textContent = `${u}`;
     holdVal.textContent = Number(h).toFixed(1);
+    spkThreshVal.textContent = Number(spk).toFixed(2);
+    bgThreshVal.textContent = Number(bg).toFixed(2);
+    marginVal.textContent = Number(m).toFixed(3);
+    bgOverVal.textContent = Number(bgo).toFixed(3);
+    rmsVal.textContent = Number(rms).toFixed(4);
+    if (confSmoothVal) confSmoothVal.textContent = Number(confSmooth).toFixed(2);
+    // Fill default numbers in help text
+    if (defSpk) defSpk.textContent = Number(currentSettings.defaults?.spk_threshold ?? 0.4).toFixed(2);
+    if (defBg) defBg.textContent = Number(currentSettings.defaults?.bg_threshold ?? 0.55).toFixed(2);
+    if (defMargin) defMargin.textContent = Number(currentSettings.defaults?.decision_margin ?? 0.07).toFixed(3);
+    if (defBgOver) defBgOver.textContent = Number(currentSettings.defaults?.bg_margin_over_spk ?? 0.04).toFixed(3);
+    if (defRms) defRms.textContent = Number(currentSettings.defaults?.rms_speech_gate ?? 0.001).toFixed(4);
+    if (defConfSmooth) defConfSmooth.textContent = Number(currentSettings.defaults?.confidence_smoothing ?? 0.30).toFixed(2);
     liveStatusEl.textContent = `Status: ${currentSettings.mode === 'off' ? 'idle' : 'listening'}`;
     liveToggleBtn.textContent = currentSettings.mode === 'off' ? '▶️ Start Live' : '⏹️ Stop Live';
     if (resetDefaultsBtn) resetDefaultsBtn.disabled = false;
@@ -297,39 +536,117 @@ const mount = document.getElementById("identify-speaker-root");
 
   const applySettingsFromSliders = (overrides = {}) => {
     const payload = {
-      threshold: parseFloat(thresholdSlider.value),
       interval_ms: parseInt(intervalSlider.value, 10),
       window_s: parseFloat(windowSlider.value),
       unknown_streak_limit: parseInt(unknownSlider.value, 10),
       hold_ttl_s: parseFloat(holdSlider.value),
+      // Advanced
+      spk_threshold: parseFloat(spkThreshSlider.value),
+      bg_threshold: parseFloat(bgThreshSlider.value),
+      decision_margin: parseFloat(marginSlider.value),
+      bg_margin_over_spk: parseFloat(bgOverSlider.value),
+      rms_speech_gate: parseFloat(rmsSlider.value),
+      confidence_smoothing: parseFloat(confSmoothSlider?.value || 0.30),
+      session_logging: !!(sessionLogToggle && sessionLogToggle.checked),
+      embed_avg: !!(embedAvgToggle && embedAvgToggle.checked),
+      embed_avg_n: parseInt(embedAvgNSlider?.value || '3', 10),
+      vad_trim: !!(vadTrimToggle && vadTrimToggle.checked),
       ...overrides,
     };
     // Update labels immediately
-    thresholdVal.textContent = Number(payload.threshold).toFixed(2);
     intervalVal.textContent = `${payload.interval_ms}`;
     windowVal.textContent = Number(payload.window_s).toFixed(2);
     unknownVal.textContent = `${payload.unknown_streak_limit}`;
     holdVal.textContent = Number(payload.hold_ttl_s).toFixed(1);
+    spkThreshVal.textContent = Number(payload.spk_threshold).toFixed(2);
+    bgThreshVal.textContent = Number(payload.bg_threshold).toFixed(2);
+    marginVal.textContent = Number(payload.decision_margin).toFixed(3);
+    bgOverVal.textContent = Number(payload.bg_margin_over_spk).toFixed(3);
+    rmsVal.textContent = Number(payload.rms_speech_gate).toFixed(4);
+    if (embedAvgNVal && embedAvgNSlider) embedAvgNVal.textContent = String(embedAvgNSlider.value);
     debouncedPost(payload);
   };
 
   // Slider change handlers
-  [thresholdSlider, intervalSlider, windowSlider, unknownSlider, holdSlider].forEach((el) => {
+  [intervalSlider, windowSlider, unknownSlider, holdSlider,
+   spkThreshSlider, bgThreshSlider, marginSlider, bgOverSlider, rmsSlider, confSmoothSlider, embedAvgToggle, embedAvgNSlider, vadTrimToggle].forEach((el) => {
     el?.addEventListener('input', () => applySettingsFromSliders());
   });
+  sessionLogToggle?.addEventListener('change', () => applySettingsFromSliders());
 
   const startPolling = () => {
     if (pollTimer) return;
     pollTimer = setInterval(async () => {
       try {
-        const res = await fetch('/api/active-speaker');
+        const sid = currentSessionId ? `?sid=${encodeURIComponent(currentSessionId)}` : '';
+        const t0 = performance.now();
+        const res = await fetch('/api/active-speaker' + sid);
         const data = await res.json();
+        const t1 = performance.now();
         liveSpeakerEl.textContent = data.speaker ?? '—';
         liveConfEl.textContent = (data.confidence ?? 0).toFixed(2);
         liveIsSpeakingEl.textContent = data.is_speaking ? 'yes' : 'no';
         liveBackendStatusEl.textContent = data.status ?? '—';
         const sugg = data.suggested && data.suggested.speaker ? `${data.suggested.speaker} (${Number(data.suggested.confidence||0).toFixed(2)})` : '—';
         if (liveSuggestedEl) liveSuggestedEl.textContent = sugg;
+        const t2 = performance.now();
+        if (currentSessionId) {
+          const d = data.diag || {};
+          logLine(`API:active-speaker sent=${t0.toFixed(1)}ms recv=${t1.toFixed(1)}ms ui=${t2.toFixed(1)}ms speaker=${data.speaker} conf=${Number(data.confidence||0).toFixed(2)} status=${data.status} top1=${d.top1_name||'—'}:${Number(d.top1_score||0).toFixed(2)} top2=${Number(d.top2_score||0).toFixed(2)} bg=${d.bg_score!=null?Number(d.bg_score).toFixed(2):'—'} margin=${Number(d.margin||0).toFixed(3)} reason=${d.reason||'—'}`);
+        }
+        // Live Output: Scores + Run config
+        const d = data.diag || {};
+        // Determine reason class + label
+        const reasonCode = String(d.reason || 'unknown');
+        const reasonMap = {
+          'spk:margin': { cls: 'reason-spk-margin', label: 'spk:margin' },
+          'spk:thr':    { cls: 'reason-spk-thr',    label: 'spk:thr'    },
+          'bg:override':{ cls: 'reason-bg-override',label: 'bg:override'},
+          'unknown':    { cls: 'reason-unknown',    label: 'unknown'    },
+          'spk:weak':   { cls: 'reason-spk-weak',   label: 'spk:weak'   },
+          'bg:weak':    { cls: 'reason-bg-weak',    label: 'bg:weak'    },
+        };
+        const r = reasonMap[reasonCode] || reasonMap['unknown'];
+        const scoresText = `top1 ${d.top1_name||'—'}:${Number(d.top1_score||0).toFixed(2)}, next ${Number(d.top2_score||0).toFixed(2)}, bg ${d.bg_score!=null?Number(d.bg_score).toFixed(2):'—'}, margin ${Number(d.margin||0).toFixed(3)} (<span class="reason-tag ${r.cls}">${r.label}</span>)`;
+        const runText = `window ${Number(d.window_s||0).toFixed(2)}s, interval ${d.interval_ms||'—'}ms, α ${Number(d.conf_smooth||0).toFixed(2)}`;
+        const liveScoresEl = mount.querySelector('#live-scores');
+        const liveConfigEl = mount.querySelector('#live-config');
+        if (liveScoresEl) liveScoresEl.innerHTML = scoresText;
+        if (liveConfigEl) liveConfigEl.textContent = runText;
+
+        // Track recent reasons (last 40 ticks) and show guidance if many borderline
+        recentReasons.push(reasonCode);
+        if (recentReasons.length > 40) recentReasons.shift();
+        if (liveHintsEl && recentReasons.length >= 10) {
+          const counts = recentReasons.reduce((a,c)=>{a[c]=(a[c]||0)+1;return a;},{});
+          const total = recentReasons.length;
+          const p = (k)=> (counts[k]||0)/total;
+          let hint = '';
+          if (p('unknown') > 0.45 || p('spk:weak') > 0.45) {
+            hint = 'Tip: Many unknown/weak decisions. Add more speaker samples (guided enroll), enable Rolling Avg and VAD Trim, or increase Window to 3–5s.';
+          } else if (p('bg:override') > 0.40) {
+            hint = 'Tip: Frequent background overrides. Record background noise samples and Rebuild Background, or raise the RMS speech gate slightly.';
+          } else if (p('bg:weak') > 0.40) {
+            hint = 'Tip: Background is weak while speech present. Consider lowering background threshold or improving background model.';
+          } else if (p('spk:thr') > 0.50) {
+            hint = 'Tip: Accepting by threshold often. Slightly raise Speaker threshold or decision margin for stricter matches.';
+          } else if (p('spk:margin') > 0.60) {
+            hint = 'Great separation detected frequently.';
+          }
+          liveHintsEl.textContent = hint;
+        }
+        // Render diagnostics only when drawer open
+        if (diagOpen && diagContent) {
+          const d = data.diag || {};
+          diagContent.innerHTML = `
+            <div>Window: <strong>${Number(d.window_s ?? 0).toFixed(2)}s</strong>, Interval: <strong>${d.interval_ms ?? '—'}ms</strong></div>
+            <div>VAD Trim: <strong>${d.vad_trim ? 'on' : 'off'}</strong>${d.trimmed_ratio != null ? `, Kept: <strong>${Math.round((Number(d.trimmed_ratio)||0)*100)}%</strong>` : ''}</div>
+            <div>Embed Avg: <strong>${d.embed_avg ? 'on' : 'off'}</strong>${d.embed_buf_len != null ? ` (N=${d.embed_avg_n}, buf=${d.embed_buf_len})` : ''}</div>
+            <div>Conf Smoothing α: <strong>${Number(d.conf_smooth ?? 0).toFixed(2)}</strong></div>
+            <div>RMS: <strong>${Number(d.rms ?? 0).toFixed(4)}</strong>, Speech present: <strong>${d.speech_present ? 'yes' : 'no'}</strong></div>
+            <div>Loop elapsed: <strong>${Math.round(Number(d.elapsed_ms||0))}ms</strong></div>
+          `;
+        }
       } catch (e) {
         console.error('Polling /api/active-speaker failed', e);
       }
@@ -343,6 +660,25 @@ const mount = document.getElementById("identify-speaker-root");
 
   const startLive = async () => {
     liveToggleBtn.disabled = true;
+    // Start new session if logging enabled
+    currentSessionId = null; uiLogs = [];
+    const loggingEnabled = !!(currentSettings?.session_logging || (sessionLogToggle && sessionLogToggle.checked));
+    if (loggingEnabled) {
+      // Use local time for session id so filenames reflect local clock
+      currentSessionId = isoLocal(new Date()).replace(/[:.]/g, '-');
+      logLine(`SESSION START ${currentSessionId}`);
+      // Capture frontend console logs during the session
+      restoreConsoleCapture = enableConsoleCapture((level, args) => {
+        try { const msg = args.map(String).join(' '); logLine(`console.${level}: ${msg}`); } catch {}
+      });
+      // Immediately create log file with settings header at the top
+      try {
+        await fetch('/api/logs/session', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: currentSessionId, text: `SESSION START ${currentSessionId}` })
+        });
+      } catch {}
+    }
     applySettingsFromSliders({ mode: 'single' });
     setTimeout(() => {
       liveStatusEl.textContent = 'Status: listening';
@@ -367,6 +703,22 @@ const mount = document.getElementById("identify-speaker-root");
     liveToggleBtn.textContent = '▶️ Start Live';
     liveToggleBtn.disabled = false;
     stopPolling();
+    // Stop capturing console
+    try { restoreConsoleCapture?.(); } catch {}
+    restoreConsoleCapture = null;
+
+    // Flush session logs if any
+    if (currentSessionId && uiLogs.length) {
+      logLine(`SESSION END ${currentSessionId}`);
+      try {
+        await fetch('/api/logs/session', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: currentSessionId, lines: uiLogs })
+        });
+        pushSessionEntry(currentSessionId);
+      } catch (e) { console.warn('Failed to save session log', e); }
+    }
+    currentSessionId = null; uiLogs = [];
   };
 
   liveToggleBtn?.addEventListener('click', () => {
@@ -376,16 +728,107 @@ const mount = document.getElementById("identify-speaker-root");
 
   // Initialize from backend on mount
   fetchSettings();
+  // Diagnostics drawer toggle
+  diagDetails?.addEventListener('toggle', () => { diagOpen = !!diagDetails.open; });
+  // Reason legend popup
+  reasonLegendBtn?.addEventListener('click', () => showReasonLegend());
+
+  function showReasonLegend() {
+    const html = `
+      <div style="font-weight:600;margin-bottom:6px;">Decision reason legend</div>
+      <div><span class="reason-tag reason-spk-margin">spk:margin</span> &nbsp;Accepted speaker because top1−top2 ≥ margin (strong separation).</div>
+      <div><span class="reason-tag reason-spk-thr">spk:thr</span> &nbsp;Accepted speaker because top1 ≥ speaker threshold.</div>
+      <div><span class="reason-tag reason-bg-override">bg:override</span> &nbsp;Background dominated required margin/threshold.</div>
+      <div><span class="reason-tag reason-unknown">unknown</span> &nbsp;Insufficient evidence.</div>
+      <div><span class="reason-tag reason-spk-weak">spk:weak</span> &nbsp;Top speaker didn’t meet margin or threshold.</div>
+      <div><span class="reason-tag reason-bg-weak">bg:weak</span> &nbsp;Background didn’t clearly win while speech likely present.</div>
+      <hr style="margin:8px 0;"/>
+      <div style="font-weight:600;margin-bottom:6px;">Improvement tips</div>
+      <ul style="margin:0 0 6px 18px;">
+        <li>Unknown/weak often: add guided enrollment clips; enable Rolling Avg + VAD Trim; increase Window to 3–5s.</li>
+        <li>Background overrides: record ambient noise samples and Rebuild Background; consider raising RMS speech gate slightly.</li>
+        <li>Threshold‑based accepts common: slightly raise Speaker threshold or Decision margin.</li>
+      </ul>
+    `;
+    showInlinePopup('Live reason legend', html);
+  }
+
+  function showInlinePopup(title, html) {
+    const overlay = document.createElement('div');
+    overlay.style.position = 'fixed'; overlay.style.inset = '0'; overlay.style.background = 'rgba(0,0,0,0.5)';
+    overlay.style.zIndex = '9999'; overlay.style.display = 'flex'; overlay.style.alignItems = 'center'; overlay.style.justifyContent = 'center';
+    const box = document.createElement('div');
+    box.style.background = '#fff'; box.style.color = '#222'; box.style.width = 'min(720px, 90vw)'; box.style.maxHeight = '70vh';
+    box.style.borderRadius = '8px'; box.style.padding = '12px'; box.style.overflow = 'auto';
+    const hdr = document.createElement('div'); hdr.textContent = title; hdr.style.fontWeight = '600'; hdr.style.marginBottom = '8px';
+    const content = document.createElement('div'); content.innerHTML = html;
+    const actions = document.createElement('div'); actions.style.marginTop = '8px';
+    const closeBtn = document.createElement('button'); closeBtn.textContent = 'Close'; closeBtn.onclick = () => overlay.remove();
+    actions.appendChild(closeBtn);
+    box.appendChild(hdr); box.appendChild(content); box.appendChild(actions);
+    overlay.appendChild(box); document.body.appendChild(overlay);
+  }
+  // Load existing logs list on mount
+  (async function loadLogs() {
+    try {
+      if (!logsContainer) return;
+      const items = await fetch('/api/logs').then(r=>r.json());
+      const sids = new Map();
+      for (const it of Array.isArray(items) ? items : []) {
+        const name = String(it.file || '');
+        let m = name.match(/^(.+)\.log$/);
+        if (m) {
+          const sid = m[1];
+          // Skip legacy prefixed files when a combined file exists
+          if (sid.startsWith('ui_') || sid.startsWith('api_')) {
+            const base = sid.replace(/^(?:ui_|api_)/, '');
+            if (!sids.has(base)) sids.set(base, false);
+          } else {
+            sids.set(sid, true); // combined
+          }
+        }
+      }
+      logsContainer.innerHTML = '';
+      Array.from(sids.keys()).sort().reverse().forEach(sid => pushSessionEntry(sid));
+    } catch (e) { /* ignore */ }
+  })();
+
+  // Clear all logs handler
+  clearLogsBtn?.addEventListener('click', async () => {
+    if (!confirm('Delete all session logs?')) return;
+    try {
+      const items = await fetch('/api/logs').then(r=>r.json());
+      const files = Array.isArray(items) ? items.map(it => String(it.file || '')).filter(Boolean) : [];
+      await Promise.allSettled(files.map(name => fetch(`/api/logs/file/${encodeURIComponent(name)}`, { method: 'DELETE' })));
+      if (logsContainer) logsContainer.innerHTML = '<em>No logs.</em>';
+      // Also stop logging if an active session exists, to prevent immediate re-creation
+      if (currentSessionId) {
+        currentSessionId = null;
+        uiLogs = [];
+      }
+    } catch (e) {
+      alert('Failed to clear logs.');
+    }
+  });
 
   // Reset to defaults handler
   resetDefaultsBtn?.addEventListener('click', () => {
     const d = (currentSettings && currentSettings.defaults) || null;
     if (!d) return;
-    thresholdSlider.value = d.threshold;
     intervalSlider.value = d.interval_ms;
     windowSlider.value = d.window_s;
     unknownSlider.value = d.unknown_streak_limit;
     holdSlider.value = d.hold_ttl_s;
+    spkThreshSlider.value = d.spk_threshold ?? 0.4;
+    bgThreshSlider.value = d.bg_threshold ?? 0.55;
+    marginSlider.value = d.decision_margin ?? 0.07;
+    bgOverSlider.value = d.bg_margin_over_spk ?? 0.04;
+    rmsSlider.value = d.rms_speech_gate ?? 0.001;
+    if (confSmoothSlider) confSmoothSlider.value = d.confidence_smoothing ?? 0.30;
+    if (embedAvgToggle) embedAvgToggle.checked = !!(d.embed_avg ?? false);
+    if (embedAvgNSlider) embedAvgNSlider.value = d.embed_avg_n ?? 3;
+    if (embedAvgNVal) embedAvgNVal.textContent = String(embedAvgNSlider?.value || '3');
+    if (vadTrimToggle) vadTrimToggle.checked = !!(d.vad_trim ?? false);
     applySettingsFromSliders();
   });
 

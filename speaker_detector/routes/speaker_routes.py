@@ -179,6 +179,20 @@ def active_speaker():
 
     try:
         result = get_active_speaker()
+        # Optional session logging: append API event if sid provided
+        sid = (request.args.get('sid') or '').strip()
+        if sid:
+            try:
+                from speaker_detector.routes.logs_routes import LOGS_DIR, _safe_name
+                safe = _safe_name(sid)
+                if safe:
+                    import time as _t
+                    p = LOGS_DIR / f"{safe}.log"
+                    ts = _t.strftime("%Y-%m-%dT%H:%M:%S", _t.localtime())
+                    with open(p, 'a', encoding='utf-8') as f:
+                        f.write(f"{ts} /api/active-speaker payload={result}\n")
+            except Exception:
+                pass
         if result.get("confidence") is None:
             result["confidence"] = 0.0
         if result.get("speaker") is None:

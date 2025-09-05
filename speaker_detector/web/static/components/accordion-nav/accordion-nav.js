@@ -41,12 +41,21 @@ export function setupAccordionNav() {
       step.classList.add("active");
 
       target.style.display = "block";
+      try { localStorage.setItem('active-tab', tabId); } catch {}
     });
   });
 
-  // ✅ Show only the first tab by default
+  // ✅ Restore last active tab (fallback to Identify if present, else first)
   hideAllTabs();
-  const firstId = steps[0]?.dataset.tab;
-  const firstRoot = document.getElementById(`${firstId}-root`);
-  if (firstRoot) firstRoot.style.display = "block";
+  let active = null;
+  try { active = localStorage.getItem('active-tab'); } catch {}
+  if (!active) {
+    // Prefer Identify as a sensible default for your workflow
+    const hasIdentify = Array.from(steps).some(s => s.dataset.tab === 'identify-speaker');
+    active = hasIdentify ? 'identify-speaker' : (steps[0]?.dataset.tab);
+  }
+  const toActivate = Array.from(steps).find(s => s.dataset.tab === active) || steps[0];
+  if (toActivate) {
+    toActivate.click();
+  }
 }

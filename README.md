@@ -16,6 +16,8 @@ A lightweight CLI tool for speaker enrollment and voice identification, powered 
 - 📁 Clean file storage in `~/.speaker-detector/`
 - 🔊 Optional `--verbose` mode for debugging
 
+Web UI note: The web client uses a guided-only enrollment flow (multiple short recordings). Quick enroll with a single clip has been removed to ensure model accuracy.
+
 
 ## 📦 Installation
 

@@ -20,13 +20,33 @@ try:
         DEFAULT_UNKNOWN_STREAK_LIMIT,
         DEFAULT_HOLD_TTL_S,
         DEFAULT_WINDOW_S,
+        DEFAULT_SPK_THRESHOLD,
+        DEFAULT_BG_THRESHOLD,
+        DEFAULT_DECISION_MARGIN,
+        DEFAULT_BG_MARGIN_OVER_SPK,
+        DEFAULT_RMS_SPEECH_GATE,
+        DEFAULT_CONFIDENCE_SMOOTHING,
+        DEFAULT_SESSION_LOGGING,
+        DEFAULT_EMBED_AVG,
+        DEFAULT_EMBED_AVG_N,
+        DEFAULT_VAD_TRIM,
     )
 except Exception:
     DEFAULT_CONFIDENCE_THRESHOLD = 0.75
-    DEFAULT_INTERVAL_MS = 3000
+    DEFAULT_INTERVAL_MS = 4000
     DEFAULT_UNKNOWN_STREAK_LIMIT = 2
     DEFAULT_HOLD_TTL_S = 4.0
-    DEFAULT_WINDOW_S = 1.25
+    DEFAULT_WINDOW_S = 4.0
+    DEFAULT_SPK_THRESHOLD = 0.38
+    DEFAULT_BG_THRESHOLD = 0.70
+    DEFAULT_DECISION_MARGIN = 0.07
+    DEFAULT_BG_MARGIN_OVER_SPK = 0.10
+    DEFAULT_RMS_SPEECH_GATE = 1e-3
+    DEFAULT_CONFIDENCE_SMOOTHING = 0.80
+    DEFAULT_SESSION_LOGGING = False
+    DEFAULT_EMBED_AVG = True
+    DEFAULT_EMBED_AVG_N = 3
+    DEFAULT_VAD_TRIM = True
 
 SETTINGS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..", "storage"))
 os.makedirs(SETTINGS_DIR, exist_ok=True)
@@ -84,22 +104,57 @@ def _sanitize_float(v, *, lo: float = 0.0, hi: float = 10.0, default: float = 0.
     except Exception:
         return default
 
+def _sanitize_bool(v, default: bool = False) -> bool:
+    try:
+        if isinstance(v, bool):
+            return v
+        s = str(v).strip().lower()
+        if s in ("1", "true", "yes", "on"):
+            return True
+        if s in ("0", "false", "no", "off"):
+            return False
+    except Exception:
+        pass
+    return default
+
 def _payload(include_defaults: bool = True, persisted_found: bool | None = None) -> dict:
     out = {
         "mode": state.LISTENING_MODE.get("mode", "off"),
         "interval_ms": getattr(state, "DETECTION_INTERVAL_MS", DEFAULT_INTERVAL_MS),
-        "threshold": getattr(state, "DETECTION_THRESHOLD", DEFAULT_CONFIDENCE_THRESHOLD),
         "unknown_streak_limit": getattr(state, "UNKNOWN_STREAK_LIMIT", DEFAULT_UNKNOWN_STREAK_LIMIT),
         "hold_ttl_s": getattr(state, "HOLD_TTL_S", DEFAULT_HOLD_TTL_S),
         "window_s": getattr(state, "DURATION_S", DEFAULT_WINDOW_S),
+        # Advanced identification tunables
+        "spk_threshold": getattr(state, "SPK_THRESHOLD", DEFAULT_SPK_THRESHOLD),
+        "bg_threshold": getattr(state, "BG_THRESHOLD", DEFAULT_BG_THRESHOLD),
+        "decision_margin": getattr(state, "DECISION_MARGIN", DEFAULT_DECISION_MARGIN),
+        "bg_margin_over_spk": getattr(state, "BG_MARGIN_OVER_SPK", DEFAULT_BG_MARGIN_OVER_SPK),
+        "rms_speech_gate": getattr(state, "RMS_SPEECH_GATE", DEFAULT_RMS_SPEECH_GATE),
+        # Behavior toggles
+        "confidence_smoothing": getattr(state, "CONFIDENCE_SMOOTHING", DEFAULT_CONFIDENCE_SMOOTHING),
+        "session_logging": getattr(state, "SESSION_LOGGING", DEFAULT_SESSION_LOGGING),
+        "embed_avg": getattr(state, "EMBED_AVG", DEFAULT_EMBED_AVG),
+        "embed_avg_n": getattr(state, "EMBED_AVG_N", DEFAULT_EMBED_AVG_N),
+        "vad_trim": getattr(state, "VAD_TRIM", DEFAULT_VAD_TRIM),
     }
     if include_defaults:
         out["defaults"] = {
-            "threshold": DEFAULT_CONFIDENCE_THRESHOLD,
             "interval_ms": DEFAULT_INTERVAL_MS,
             "unknown_streak_limit": DEFAULT_UNKNOWN_STREAK_LIMIT,
             "hold_ttl_s": DEFAULT_HOLD_TTL_S,
             "window_s": DEFAULT_WINDOW_S,
+            # Advanced defaults
+            "spk_threshold": DEFAULT_SPK_THRESHOLD,
+            "bg_threshold": DEFAULT_BG_THRESHOLD,
+            "decision_margin": DEFAULT_DECISION_MARGIN,
+            "bg_margin_over_spk": DEFAULT_BG_MARGIN_OVER_SPK,
+            "rms_speech_gate": DEFAULT_RMS_SPEECH_GATE,
+            # Behavior toggles
+            "confidence_smoothing": DEFAULT_CONFIDENCE_SMOOTHING,
+            "session_logging": DEFAULT_SESSION_LOGGING,
+            "embed_avg": DEFAULT_EMBED_AVG,
+            "embed_avg_n": DEFAULT_EMBED_AVG_N,
+            "vad_trim": DEFAULT_VAD_TRIM,
         }
     if persisted_found is not None:
         out["persisted"] = bool(persisted_found)
@@ -110,10 +165,19 @@ def _persist_current():
         {
             "mode": state.LISTENING_MODE.get("mode", "off"),
             "interval_ms": getattr(state, "DETECTION_INTERVAL_MS", DEFAULT_INTERVAL_MS),
-            "threshold": getattr(state, "DETECTION_THRESHOLD", DEFAULT_CONFIDENCE_THRESHOLD),
             "unknown_streak_limit": getattr(state, "UNKNOWN_STREAK_LIMIT", DEFAULT_UNKNOWN_STREAK_LIMIT),
             "hold_ttl_s": getattr(state, "HOLD_TTL_S", DEFAULT_HOLD_TTL_S),
             "window_s": getattr(state, "DURATION_S", DEFAULT_WINDOW_S),
+            "spk_threshold": getattr(state, "SPK_THRESHOLD", DEFAULT_SPK_THRESHOLD),
+            "bg_threshold": getattr(state, "BG_THRESHOLD", DEFAULT_BG_THRESHOLD),
+            "decision_margin": getattr(state, "DECISION_MARGIN", DEFAULT_DECISION_MARGIN),
+            "bg_margin_over_spk": getattr(state, "BG_MARGIN_OVER_SPK", DEFAULT_BG_MARGIN_OVER_SPK),
+            "rms_speech_gate": getattr(state, "RMS_SPEECH_GATE", DEFAULT_RMS_SPEECH_GATE),
+            "confidence_smoothing": getattr(state, "CONFIDENCE_SMOOTHING", DEFAULT_CONFIDENCE_SMOOTHING),
+            "session_logging": getattr(state, "SESSION_LOGGING", DEFAULT_SESSION_LOGGING),
+            "embed_avg": getattr(state, "EMBED_AVG", DEFAULT_EMBED_AVG),
+            "embed_avg_n": getattr(state, "EMBED_AVG_N", DEFAULT_EMBED_AVG_N),
+            "vad_trim": getattr(state, "VAD_TRIM", DEFAULT_VAD_TRIM),
         }
     )
 
@@ -122,11 +186,22 @@ _persisted = _read_persisted()
 if _persisted:
     state.LISTENING_MODE["mode"] = _sanitize_mode(_persisted.get("mode"))
     state.DETECTION_INTERVAL_MS = _sanitize_interval(_persisted.get("interval_ms"))
-    state.DETECTION_THRESHOLD   = _sanitize_threshold(_persisted.get("threshold"))
     # Optional tunables for smoothing and window length
     state.UNKNOWN_STREAK_LIMIT  = _sanitize_int(_persisted.get("unknown_streak_limit"), lo=0, hi=5, default=DEFAULT_UNKNOWN_STREAK_LIMIT)
     state.HOLD_TTL_S            = _sanitize_float(_persisted.get("hold_ttl_s"), lo=0.0, hi=10.0, default=DEFAULT_HOLD_TTL_S)
-    state.DURATION_S            = _sanitize_float(_persisted.get("window_s"), lo=0.5, hi=3.0, default=DEFAULT_WINDOW_S)
+    state.DURATION_S            = _sanitize_float(_persisted.get("window_s"), lo=0.5, hi=5.0, default=DEFAULT_WINDOW_S)
+    # Advanced tunables
+    state.SPK_THRESHOLD         = _sanitize_float(_persisted.get("spk_threshold"), lo=0.2, hi=0.95, default=DEFAULT_SPK_THRESHOLD)
+    state.BG_THRESHOLD          = _sanitize_float(_persisted.get("bg_threshold"), lo=0.2, hi=0.95, default=DEFAULT_BG_THRESHOLD)
+    state.DECISION_MARGIN       = _sanitize_float(_persisted.get("decision_margin"), lo=0.0, hi=0.3, default=DEFAULT_DECISION_MARGIN)
+    state.BG_MARGIN_OVER_SPK    = _sanitize_float(_persisted.get("bg_margin_over_spk"), lo=0.0, hi=0.2, default=DEFAULT_BG_MARGIN_OVER_SPK)
+    state.RMS_SPEECH_GATE       = _sanitize_float(_persisted.get("rms_speech_gate"), lo=0.0, hi=0.02, default=DEFAULT_RMS_SPEECH_GATE)
+    # Behavior toggles
+    state.CONFIDENCE_SMOOTHING  = _sanitize_float(_persisted.get("confidence_smoothing"), lo=0.0, hi=1.0, default=DEFAULT_CONFIDENCE_SMOOTHING)
+    state.SESSION_LOGGING       = _sanitize_bool(_persisted.get("session_logging"), default=DEFAULT_SESSION_LOGGING)
+    state.EMBED_AVG             = _sanitize_bool(_persisted.get("embed_avg"), default=False)
+    state.EMBED_AVG_N           = _sanitize_int(_persisted.get("embed_avg_n"), lo=1, hi=8, default=3)
+    state.VAD_TRIM              = _sanitize_bool(_persisted.get("vad_trim"), default=False)
 
 listening_bp = Blueprint("listening", __name__)
 
@@ -141,25 +216,43 @@ def listening_mode():
 
         prev_mode      = state.LISTENING_MODE.get("mode", "off")
         prev_interval  = getattr(state, "DETECTION_INTERVAL_MS", DEFAULT_INTERVAL_MS)
-        prev_threshold = getattr(state, "DETECTION_THRESHOLD", DEFAULT_CONFIDENCE_THRESHOLD)
         prev_unknown   = getattr(state, "UNKNOWN_STREAK_LIMIT", DEFAULT_UNKNOWN_STREAK_LIMIT)
         prev_hold_ttl  = getattr(state, "HOLD_TTL_S", DEFAULT_HOLD_TTL_S)
         prev_window_s  = getattr(state, "DURATION_S", DEFAULT_WINDOW_S)
 
         new_mode      = _sanitize_mode(data.get("mode", prev_mode))
         new_interval  = _sanitize_interval(data.get("interval_ms", prev_interval))
-        new_threshold = _sanitize_threshold(data.get("threshold", prev_threshold))
         new_unknown   = _sanitize_int(data.get("unknown_streak_limit", prev_unknown), lo=0, hi=5, default=prev_unknown)
         new_hold_ttl  = _sanitize_float(data.get("hold_ttl_s", prev_hold_ttl), lo=0.0, hi=10.0, default=prev_hold_ttl)
-        new_window_s  = _sanitize_float(data.get("window_s", prev_window_s), lo=0.5, hi=3.0, default=prev_window_s)
+        new_window_s  = _sanitize_float(data.get("window_s", prev_window_s), lo=0.5, hi=5.0, default=prev_window_s)
+        # Advanced
+        new_spk_thr   = _sanitize_float(data.get("spk_threshold", getattr(state, "SPK_THRESHOLD", DEFAULT_SPK_THRESHOLD)), lo=0.2, hi=0.95, default=getattr(state, "SPK_THRESHOLD", DEFAULT_SPK_THRESHOLD))
+        new_bg_thr    = _sanitize_float(data.get("bg_threshold", getattr(state, "BG_THRESHOLD", DEFAULT_BG_THRESHOLD)), lo=0.2, hi=0.95, default=getattr(state, "BG_THRESHOLD", DEFAULT_BG_THRESHOLD))
+        new_margin    = _sanitize_float(data.get("decision_margin", getattr(state, "DECISION_MARGIN", DEFAULT_DECISION_MARGIN)), lo=0.0, hi=0.3, default=getattr(state, "DECISION_MARGIN", DEFAULT_DECISION_MARGIN))
+        new_bg_over   = _sanitize_float(data.get("bg_margin_over_spk", getattr(state, "BG_MARGIN_OVER_SPK", DEFAULT_BG_MARGIN_OVER_SPK)), lo=0.0, hi=0.2, default=getattr(state, "BG_MARGIN_OVER_SPK", DEFAULT_BG_MARGIN_OVER_SPK))
+        new_rms_gate  = _sanitize_float(data.get("rms_speech_gate", getattr(state, "RMS_SPEECH_GATE", DEFAULT_RMS_SPEECH_GATE)), lo=0.0, hi=0.02, default=getattr(state, "RMS_SPEECH_GATE", DEFAULT_RMS_SPEECH_GATE))
+        new_conf_smooth = _sanitize_float(data.get("confidence_smoothing", getattr(state, "CONFIDENCE_SMOOTHING", DEFAULT_CONFIDENCE_SMOOTHING)), lo=0.0, hi=1.0, default=getattr(state, "CONFIDENCE_SMOOTHING", DEFAULT_CONFIDENCE_SMOOTHING))
+        new_session_logging = _sanitize_bool(data.get("session_logging", getattr(state, "SESSION_LOGGING", DEFAULT_SESSION_LOGGING)), default=getattr(state, "SESSION_LOGGING", DEFAULT_SESSION_LOGGING))
+        new_embed_avg      = _sanitize_bool(data.get("embed_avg", getattr(state, "EMBED_AVG", DEFAULT_EMBED_AVG)), default=getattr(state, "EMBED_AVG", DEFAULT_EMBED_AVG))
+        new_embed_avg_n    = _sanitize_int(data.get("embed_avg_n", getattr(state, "EMBED_AVG_N", DEFAULT_EMBED_AVG_N)), lo=1, hi=8, default=getattr(state, "EMBED_AVG_N", DEFAULT_EMBED_AVG_N))
+        new_vad_trim       = _sanitize_bool(data.get("vad_trim", getattr(state, "VAD_TRIM", DEFAULT_VAD_TRIM)), default=getattr(state, "VAD_TRIM", DEFAULT_VAD_TRIM))
 
         # Update in-memory SSOT
         state.LISTENING_MODE["mode"] = new_mode
         state.DETECTION_INTERVAL_MS  = new_interval
-        state.DETECTION_THRESHOLD    = new_threshold
         state.UNKNOWN_STREAK_LIMIT   = new_unknown
         state.HOLD_TTL_S             = new_hold_ttl
         state.DURATION_S             = new_window_s
+        state.SPK_THRESHOLD          = new_spk_thr
+        state.BG_THRESHOLD           = new_bg_thr
+        state.DECISION_MARGIN        = new_margin
+        state.BG_MARGIN_OVER_SPK     = new_bg_over
+        state.RMS_SPEECH_GATE        = new_rms_gate
+        state.CONFIDENCE_SMOOTHING   = new_conf_smooth
+        state.SESSION_LOGGING        = new_session_logging
+        state.EMBED_AVG              = new_embed_avg
+        state.EMBED_AVG_N            = new_embed_avg_n
+        state.VAD_TRIM               = new_vad_trim
 
         # Persist once
         _persist_current()

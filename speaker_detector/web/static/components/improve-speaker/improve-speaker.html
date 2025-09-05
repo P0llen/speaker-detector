@@ -1,0 +1,31 @@
+<!-- /static/components/improve-speaker/improve-speaker.html -->
+
+<link rel="stylesheet" href="/static/components/improve-speaker/improve-speaker.css" />
+
+<template id="improve-speaker-template">
+  <div id="improve-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4>Improve Speaker</h4>
+        <button class="close-modal" id="improve-close">✖</button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label for="improve-speaker-name">Speaker</label>
+          <input id="improve-speaker-name" type="text" readonly />
+        </div>
+        <div id="improve-status" class="status"></div>
+        <div id="improve-audio"></div>
+        <div class="actions">
+          <button id="improve-record">⏺️ Record</button>
+          <button id="improve-rerecord" disabled>↺ Re-record</button>
+          <button id="improve-accept" disabled>✅ Accept</button>
+          <button id="improve-add-another" disabled>➕ Add Another</button>
+          <button id="improve-cancel" class="btn-warn">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<div id="improve-speaker-root"></div>

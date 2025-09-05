@@ -5,6 +5,14 @@ import torch
 import torchaudio
 from speechbrain.inference import SpeakerRecognition
 from pydub import AudioSegment
+from speaker_detector.constants import (
+    DEFAULT_SPK_THRESHOLD,
+    DEFAULT_BG_THRESHOLD,
+    DEFAULT_DECISION_MARGIN,
+    DEFAULT_BG_MARGIN_OVER_SPK,
+    DEFAULT_RMS_SPEECH_GATE,
+)
+import torch.nn.functional as F
 
 # ── DIRECTORIES ──────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent.parent / "storage"
@@ -111,37 +119,157 @@ def rank_speakers(audio_path: str) -> list[tuple[str, float]]:
             continue
     return sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
 
-def identify_speaker(audio_path: str, threshold: float = 0.25) -> tuple[str, float]:
-    print(f"📣 identify_speaker() called — file: {audio_path}, threshold: {threshold}")
+def rank_speakers_from_embedding(test_emb: torch.Tensor) -> list[tuple[str, float]]:
+    scores = {}
+    for emb_path in EMBEDDINGS_DIR.glob("*.pt"):
+        name = emb_path.stem
+        try:
+            emb = torch.load(emb_path)
+            score = F.cosine_similarity(emb, test_emb, dim=0).item()
+            scores[name] = score
+        except Exception:
+            continue
+    return sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
+
+def identify_speaker(
+    audio_path: str,
+    threshold: float = 0.25,
+    *,
+    spk_threshold: float | None = None,
+    bg_threshold: float | None = None,
+    margin: float | None = None,
+    bg_margin_over_spk: float | None = None,
+    rms_speech_gate: float | None = None,
+) -> tuple[str, float]:
+    """Identify speaker with separate operating points for speakers and background.
+
+    Args:
+        audio_path: Path to audio file.
+        threshold: Backward-compat shim; used as speaker threshold if others unset.
+        spk_threshold: Score to accept a named speaker.
+        bg_threshold: Score to accept background.
+        margin: Required gap between top1 and top2 to auto-accept.
+        bg_margin_over_spk: How much background must beat best speaker to win.
+        rms_speech_gate: Minimum RMS to consider the window as speech present.
+
+    Returns:
+        (label, score)
+    """
+    print(
+        f"📣 identify_speaker() file={audio_path} thr={threshold}"
+    )
+
+    # Thresholds and gates
+    spk_thr = float(spk_threshold if spk_threshold is not None else threshold if threshold is not None else DEFAULT_SPK_THRESHOLD)
+    bg_thr = float(bg_threshold if bg_threshold is not None else DEFAULT_BG_THRESHOLD)
+    gap = float(margin if margin is not None else DEFAULT_DECISION_MARGIN)
+    bg_over_spk = float(bg_margin_over_spk if bg_margin_over_spk is not None else DEFAULT_BG_MARGIN_OVER_SPK)
+    rms_gate = float(rms_speech_gate if rms_speech_gate is not None else DEFAULT_RMS_SPEECH_GATE)
+
+    # Compute ranked scores
     ranked = rank_speakers(audio_path)
     if not ranked:
         return "unknown", 0.0
 
     best, best_score = ranked[0]
     second_score = ranked[1][1] if len(ranked) > 1 else 0.0
-    auto_thresh = (best_score - second_score) > 0.1
 
-    # Special handling for background noise embedding
-    name_norm = (best or "").lower()
-    is_background_best = name_norm in ("background", "background_noise")
-    # Lookup background score regardless of rank
+    # Background score (regardless of rank)
     bg_items = [x for x in ranked if x[0].lower() in ("background", "background_noise")]
     background_score = bg_items[0][1] if bg_items else None
 
+    # Estimate RMS for speech presence gating
+    try:
+        sig, _ = torchaudio.load(audio_path)
+        # mono average if needed
+        if sig.dim() == 2 and sig.size(0) > 1:
+            sig = sig.mean(dim=0, keepdim=True)
+        rms = float(torch.sqrt(torch.clamp((sig ** 2).mean(), min=0.0)).item())
+    except Exception:
+        rms = 0.0
+    speech_present = rms >= rms_gate
+
+    name_norm = (best or "").lower()
+    is_background_best = name_norm in ("background", "background_noise")
+
+    # 1) If best is a named speaker, accept if strong enough by margin or threshold
+    if not is_background_best:
+        if (best_score - second_score) >= gap or best_score >= spk_thr:
+            return best, round(best_score, 3)
+        # Speaker not strong enough; consider background if it clearly dominates
+        if background_score is not None:
+            if (background_score >= bg_thr) and ((background_score - best_score) >= bg_over_spk):
+                # Allow background override; but if clear speech is present, be stricter
+                if speech_present and (background_score - best_score) < (bg_over_spk + 0.02):
+                    return "unknown", round(best_score, 3)
+                return "background", round(background_score, 3)
+        return "unknown", round(best_score, 3)
+
+    # 2) If best is background
     if is_background_best:
-        # Slightly more permissive for background: either clear gap or reasonable score
-        background_ok = auto_thresh or (best_score >= max(0.35, threshold * 0.8))
-        if background_ok:
+        # In quiet segments, allow background if score clears bg_thr or has clear margin
+        if not speech_present:
+            if (best_score >= bg_thr) or ((best_score - second_score) >= gap):
+                return "background", round(best_score, 3)
+            return "unknown", round(best_score, 3)
+
+        # If speech appears present, only accept background when it clearly dominates speakers
+        # Find top non-background score
+        non_bg_scores = [s for (n, s) in ranked if n.lower() not in ("background", "background_noise")]
+        top_spk_score = non_bg_scores[0] if non_bg_scores else 0.0
+        if (best_score >= bg_thr) and ((best_score - top_spk_score) >= (bg_over_spk + 0.02)):
             return "background", round(best_score, 3)
-        # If background not good enough, fall through to normal decision
+        # Else, treat as uncertain speech
+        return "unknown", round(best_score, 3)
 
-    # If top is not background and not a match, but background is close and reasonably high, prefer background
-    if not (auto_thresh or best_score >= threshold) and background_score is not None:
-        if background_score >= max(0.4, threshold * 0.85) and (best_score - background_score) <= 0.03:
-            return "background", round(background_score, 3)
+    # Fallback
+    return "unknown", round(best_score, 3)
 
-    match = auto_thresh or best_score >= threshold
-    return (best, round(best_score, 3)) if match else ("unknown", round(best_score, 3))
+def identify_embedding(
+    test_emb: torch.Tensor,
+    *,
+    spk_threshold: float | None = None,
+    bg_threshold: float | None = None,
+    margin: float | None = None,
+    bg_margin_over_spk: float | None = None,
+    speech_present: bool | None = None,
+) -> tuple[str, float]:
+    ranked = rank_speakers_from_embedding(test_emb)
+    if not ranked:
+        return "unknown", 0.0
+    spk_thr = float(spk_threshold if spk_threshold is not None else DEFAULT_SPK_THRESHOLD)
+    bg_thr = float(bg_threshold if bg_threshold is not None else DEFAULT_BG_THRESHOLD)
+    gap = float(margin if margin is not None else DEFAULT_DECISION_MARGIN)
+    bg_over_spk = float(bg_margin_over_spk if bg_margin_over_spk is not None else DEFAULT_BG_MARGIN_OVER_SPK)
+    best, best_score = ranked[0]
+    second_score = ranked[1][1] if len(ranked) > 1 else 0.0
+    bg_items = [x for x in ranked if x[0].lower() in ("background", "background_noise")]
+    background_score = bg_items[0][1] if bg_items else None
+    spk_name_norm = (best or "").lower()
+    is_bg_best = spk_name_norm in ("background", "background_noise")
+
+    if not is_bg_best:
+        if (best_score - second_score) >= gap or best_score >= spk_thr:
+            return best, round(best_score, 3)
+        if background_score is not None:
+            if (background_score >= bg_thr) and ((background_score - best_score) >= bg_over_spk):
+                if (speech_present is True) and ((background_score - best_score) < (bg_over_spk + 0.02)):
+                    return "unknown", round(best_score, 3)
+                return "background", round(background_score, 3)
+        return "unknown", round(best_score, 3)
+
+    if is_bg_best:
+        if not speech_present:
+            if (best_score >= bg_thr) or ((best_score - second_score) >= gap):
+                return "background", round(best_score, 3)
+            return "unknown", round(best_score, 3)
+        non_bg_scores = [s for (n, s) in ranked if n.lower() not in ("background", "background_noise")]
+        top_spk_score = non_bg_scores[0] if non_bg_scores else 0.0
+        if (best_score >= bg_thr) and ((best_score - top_spk_score) >= (bg_over_spk + 0.02)):
+            return "background", round(best_score, 3)
+        return "unknown", round(best_score, 3)
+
+    return "unknown", round(best_score, 3)
 
 # ── REBUILD CHECKING ─────────────────────────────────────────────────────────
 def list_speakers() -> list[str]:

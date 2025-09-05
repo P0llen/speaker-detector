@@ -8,6 +8,7 @@ from speaker_detector.utils.paths import STATIC_DIR, INDEX_HTML, COMPONENTS_DIR
 from speaker_detector.speaker_state import LISTENING_MODE, start_detection_loop, stop_detection_loop, stop_event
 from speaker_detector.routes.version_routes import version_bp
 from speaker_detector.routes.events_routes import events_bp
+from speaker_detector.routes.logs_routes import logs_bp
 
 # ── App Setup ────────────────────────────────────────────────
 app = Flask(__name__, static_folder=str(STATIC_DIR))
@@ -70,6 +71,7 @@ app.register_blueprint(meetings_bp)
 app.register_blueprint(correction_bp)
 app.register_blueprint(version_bp)
 app.register_blueprint(events_bp)
+app.register_blueprint(logs_bp)
 
 # ── Interrupt Handler ───────────────────────────────────────
 def handle_interrupt(sig, frame):

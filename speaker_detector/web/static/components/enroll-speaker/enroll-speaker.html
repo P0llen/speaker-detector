@@ -10,11 +10,34 @@
         <h3>Enroll Speaker</h3>
       </div>
 
-      <input type="text" id="speaker-id" placeholder="Enter speaker ID" />
-      <button id="enroll-speaker-btn">➕ Enroll Speaker</button>
+      <button id="guided-enroll-btn" title="Walk through guided recordings">🧭 Enroll Speaker</button>
       <p class="status" id="enroll-speaker-status">Pending</p>
-      <div id="enroll-progress-pill" class="progress-indicator">—/—</div>
-      <div id="enroll-preview"></div>
+    </div>
+
+    <!-- Guided Enrollment Modal -->
+    <div id="enroll-wizard" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4>Guided Enrollment</h4>
+          <button class="close-modal" id="close-enroll-wizard">✖</button>
+        </div>
+        <div class="wizard-body">
+          <div style="margin-bottom:8px;">
+            <label for="wizard-speaker-id" style="display:block;margin-bottom:4px;color:#333;">Speaker name</label>
+            <input type="text" id="wizard-speaker-id" placeholder="Enter speaker name" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;" />
+          </div>
+          <div class="wizard-progress" id="wizard-progress"></div>
+          <div id="wizard-prompt" class="wizard-prompt">Prompt will appear here</div>
+          <div id="wizard-status" class="wizard-status"></div>
+          <div id="wizard-audio"></div>
+          <div class="wizard-actions">
+            <button id="wizard-record">⏺️ Record</button>
+            <button id="wizard-rerecord" disabled>↺ Re-record</button>
+            <button id="wizard-accept" disabled>✅ Accept</button>
+            <button id="wizard-cancel" class="btn-warn">Cancel</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 🔁 Speakers list will be injected here -->
