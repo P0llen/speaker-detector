@@ -74,6 +74,13 @@ const mount = document.getElementById("identify-speaker-root");
   const reasonLegendBtn = mount.querySelector('#reason-legend-btn');
   const liveHintsEl = mount.querySelector('#live-hints');
   const recentReasons = [];
+  // Profiles UI
+  const profilesSelect = mount.querySelector('#profiles-select');
+  const profileApplyBtn = mount.querySelector('#profile-apply-btn');
+  const profileSaveBtn = mount.querySelector('#profile-save-btn');
+  const profileRenameBtn = mount.querySelector('#profile-rename-btn');
+  const profileDeleteBtn = mount.querySelector('#profile-delete-btn');
+  const profilePreviewBtn = mount.querySelector('#profile-preview-btn');
 
   // Helper: reset Identify UI to initial state without page reload
   const resetIdentifyUI = () => {
@@ -728,10 +735,109 @@ const mount = document.getElementById("identify-speaker-root");
 
   // Initialize from backend on mount
   fetchSettings();
+  // Load profiles on mount
+  loadProfiles();
   // Diagnostics drawer toggle
   diagDetails?.addEventListener('toggle', () => { diagOpen = !!diagDetails.open; });
   // Reason legend popup
   reasonLegendBtn?.addEventListener('click', () => showReasonLegend());
+  // Profiles handlers
+  profileApplyBtn?.addEventListener('click', onApplyProfile);
+  profileSaveBtn?.addEventListener('click', onSaveProfile);
+  profileRenameBtn?.addEventListener('click', onRenameProfile);
+  profileDeleteBtn?.addEventListener('click', onDeleteProfile);
+  profilePreviewBtn?.addEventListener('click', onPreviewProfile);
+
+  async function loadProfiles() {
+    try {
+      const res = await fetch('/api/listening-profiles');
+      const j = await res.json();
+      if (!profilesSelect) return;
+      profilesSelect.innerHTML = '';
+      const names = Array.isArray(j.profiles) ? j.profiles : [];
+      for (const n of names) {
+        const opt = document.createElement('option');
+        opt.value = n; opt.textContent = n;
+        profilesSelect.appendChild(opt);
+      }
+    } catch {}
+  }
+
+  async function onApplyProfile() {
+    const name = profilesSelect?.value;
+    if (!name) return;
+    try {
+      const res = await fetch(`/api/listening-profiles/${encodeURIComponent(name)}`);
+      const j = await res.json();
+      const s = j.settings || {};
+      await fetch('/api/listening-mode', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(s) });
+      await fetchSettings();
+    } catch (e) { alert('Failed to apply profile'); }
+  }
+
+  async function onSaveProfile() {
+    const name = prompt('Enter profile name:');
+    if (!name) return;
+    const s = {
+      interval_ms: parseInt(intervalSlider.value, 10),
+      window_s: parseFloat(windowSlider.value),
+      unknown_streak_limit: parseInt(unknownSlider.value, 10),
+      hold_ttl_s: parseFloat(holdSlider.value),
+      spk_threshold: parseFloat(spkThreshSlider.value),
+      bg_threshold: parseFloat(bgThreshSlider.value),
+      decision_margin: parseFloat(marginSlider.value),
+      bg_margin_over_spk: parseFloat(bgOverSlider.value),
+      rms_speech_gate: parseFloat(rmsSlider.value),
+      confidence_smoothing: parseFloat(confSmoothSlider?.value || 0.30),
+      session_logging: !!(sessionLogToggle && sessionLogToggle.checked),
+      embed_avg: !!(embedAvgToggle && embedAvgToggle.checked),
+      embed_avg_n: parseInt(embedAvgNSlider?.value || '3', 10),
+      vad_trim: !!(vadTrimToggle && vadTrimToggle.checked),
+      mode: 'single',
+    };
+    try {
+      await fetch('/api/listening-profiles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, settings: s }) });
+      await loadProfiles();
+      if (profilesSelect) profilesSelect.value = name;
+    } catch (e) { alert('Failed to save profile'); }
+  }
+
+  async function onRenameProfile() {
+    const old = profilesSelect?.value;
+    if (!old) return;
+    const newer = prompt('New name for profile:', old);
+    if (!newer || newer === old) return;
+    try {
+      const res = await fetch(`/api/listening-profiles/${encodeURIComponent(old)}/rename`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ new_name: newer }) });
+      const j = await res.json();
+      if (!res.ok) { alert(j.error || 'Rename failed'); return; }
+      await loadProfiles();
+      if (profilesSelect) profilesSelect.value = newer;
+    } catch (e) { alert('Failed to rename profile'); }
+  }
+
+  async function onDeleteProfile() {
+    const name = profilesSelect?.value;
+    if (!name) return;
+    if (!confirm(`Delete profile "${name}"?`)) return;
+    try {
+      await fetch(`/api/listening-profiles/${encodeURIComponent(name)}`, { method: 'DELETE' });
+      await loadProfiles();
+    } catch (e) { alert('Failed to delete profile'); }
+  }
+
+  async function onPreviewProfile() {
+    const name = profilesSelect?.value;
+    if (!name) return;
+    try {
+      const res = await fetch(`/api/listening-profiles/${encodeURIComponent(name)}`);
+      const j = await res.json();
+      const s = j.settings || {};
+      const pre = document.createElement('pre');
+      pre.textContent = JSON.stringify(s, null, 2);
+      showInlinePopup(`Profile: ${name}`, pre.outerHTML);
+    } catch (e) { alert('Failed to preview profile'); }
+  }
 
   function showReasonLegend() {
     const html = `

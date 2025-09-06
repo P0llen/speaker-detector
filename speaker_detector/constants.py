@@ -1,6 +1,6 @@
 # speaker_detector/constants.py
 
-BACKEND_VERSION = "0.2.1"
+BACKEND_VERSION = "0.2.3"
 
 # API base paths (optional, for future centralization)
 API_PREFIX = "/api"

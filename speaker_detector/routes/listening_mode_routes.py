@@ -51,6 +51,7 @@ except Exception:
 SETTINGS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..", "storage"))
 os.makedirs(SETTINGS_DIR, exist_ok=True)
 SETTINGS_PATH = os.path.join(SETTINGS_DIR, "listening_settings.json")
+PROFILES_PATH = os.path.join(SETTINGS_DIR, "listening_profiles.json")
 
 def _read_persisted() -> dict:
     if not os.path.exists(SETTINGS_PATH):
@@ -67,6 +68,25 @@ def _write_persisted(payload: dict) -> None:
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=2)
         os.replace(tmp, SETTINGS_PATH)
+    except Exception:
+        pass
+
+def _load_profiles() -> dict:
+    try:
+        if os.path.exists(PROFILES_PATH):
+            with open(PROFILES_PATH, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return data if isinstance(data, dict) else {}
+    except Exception:
+        pass
+    return {}
+
+def _save_profiles(data: dict) -> None:
+    try:
+        tmp = PROFILES_PATH + '.tmp'
+        with open(tmp, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, PROFILES_PATH)
     except Exception:
         pass
 
@@ -275,3 +295,55 @@ def restart_detection():
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
+
+# ── Profiles API ─────────────────────────────────────────────
+
+@listening_bp.route('/api/listening-profiles', methods=['GET'])
+def list_profiles():
+    data = _load_profiles()
+    names = sorted(list(data.keys()))
+    return jsonify({"profiles": names})
+
+@listening_bp.route('/api/listening-profiles', methods=['POST'])
+def save_profile():
+    body = request.get_json(silent=True) or {}
+    name = (body.get('name') or '').strip()
+    settings = body.get('settings') or {}
+    if not name:
+        return jsonify({"error": "missing name"}), 400
+    if not isinstance(settings, dict) or not settings:
+        return jsonify({"error": "missing settings"}), 400
+    data = _load_profiles()
+    data[name] = settings
+    _save_profiles(data)
+    return jsonify({"ok": True, "name": name})
+
+@listening_bp.route('/api/listening-profiles/<name>', methods=['GET'])
+def get_profile(name: str):
+    data = _load_profiles()
+    if name not in data:
+        return jsonify({"error": "not found"}), 404
+    return jsonify({"name": name, "settings": data[name]})
+
+@listening_bp.route('/api/listening-profiles/<name>', methods=['DELETE'])
+def delete_profile(name: str):
+    data = _load_profiles()
+    if name in data:
+        del data[name]
+        _save_profiles(data)
+    return jsonify({"deleted": True})
+
+@listening_bp.route('/api/listening-profiles/<name>/rename', methods=['POST'])
+def rename_profile(name: str):
+    body = request.get_json(silent=True) or {}
+    new_name = (body.get('new_name') or '').strip()
+    if not new_name:
+        return jsonify({"error": "missing new_name"}), 400
+    data = _load_profiles()
+    if name not in data:
+        return jsonify({"error": "not found"}), 404
+    if new_name in data:
+        return jsonify({"error": "target exists"}), 409
+    data[new_name] = data.pop(name)
+    _save_profiles(data)
+    return jsonify({"renamed": True, "from": name, "to": new_name})
