@@ -41,6 +41,7 @@ dependencies = [
 
 [project.scripts]
 speaker-detector = "speaker_detector.cli:main"
+speaker-detector-server = "speaker_detector.server:main"
 
 [project.urls]
 Homepage = "https://github.com/P0llen/speaker-detector"
