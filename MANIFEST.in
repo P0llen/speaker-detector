@@ -1,0 +1,4 @@
+recursive-include speaker_detector/web/static *
+# If you later add templates or other assets, include them too:
+# recursive-include speaker_detector/templates *
+# recursive-include speaker_detector/static *

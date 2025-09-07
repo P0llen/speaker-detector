@@ -83,9 +83,13 @@ def handle_interrupt(sig, frame):
 signal.signal(signal.SIGINT, handle_interrupt)
 
 # ── Entrypoint ───────────────────────────────────────────────
-if __name__ == "__main__":
-    print("🌐 Server running on http://0.0.0.0:9000")
+def main(host: str = "0.0.0.0", port: int = 9000, debug: bool = True):
+    print(f"🌐 Server running on http://{host}:{port}")
     print(f"🚀 Static folder:     {STATIC_DIR}")
     print(f"📁 Component folder:  {COMPONENTS_DIR}")
     print(f"📄 Index HTML:        {INDEX_HTML}")
-    app.run(host="0.0.0.0", port=9000, debug=True)
+    app.run(host=host, port=port, debug=debug)
+
+
+if __name__ == "__main__":
+    main()
